@@ -18,40 +18,59 @@ class RuleTypes(Enum):
     MUST_BE_IN_SPOT = 5
 
 
-class MainUILayout(QtWidgets.QWidget):
-     
+class ClassEditorWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.UI()
  
     def UI(self):
-        self.label = QtWidgets.QLabel()
-        self.label.setText(str(class_list))
-        self.name_input = QtWidgets.QLineEdit()
-         
-        self.grid = QtWidgets.QGridLayout()
-        self.grid.addWidget(self.label, 0, 0)
-        self.grid.addWidget(self.name_input, 1, 0)
+        global class_list
 
+        self.student_list = QtWidgets.QListWidget()
+        for student in class_list:
+            QtWidgets.QListWidgetItem(student['name'], self.student_list)
+        self.student_list.itemClicked.connect(self.nameClicked)
+
+        self.name_input = QtWidgets.QLineEdit()
+        self.name_input.returnPressed.connect(self.onTextEnter)
+
+        self.grid = QtWidgets.QGridLayout()
+        self.grid.addWidget(self.student_list, 0, 0)
+        self.grid.addWidget(self.name_input, 1, 0)
         self.grid.setSpacing(2)
 
-        self.name_input.returnPressed.connect(self.onTextEnter)
         self.setLayout(self.grid)
         self.setGeometry(300, 300, 400, 400)
+        # self.setFixedWidth(400)
+        # self.setFixedHeight(400)
         self.setWindowTitle('Class Editor')
         self.show()
+
+
+    def nameClicked(self, item):
+        global class_list
+
+        delete_msg = QtWidgets.QMessageBox()
+        delete_msg.setText('Would you like to remove ' + item.text() + '?')
+        delete_msg.setIcon(QtWidgets.QMessageBox.Warning)
+        delete_msg.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+        retval = delete_msg.exec_()
+        if retval == 16384:
+            pass
+            # remove this student from the list
+        
+
+
 
     def onTextEnter(self):
         global class_list
 
         value = self.name_input.text()
-
         local_dict = {'name': value}
         rules = []
         local_dict['rules'] = rules
         class_list.append(local_dict)
-
-        self.label.setText(str(class_list))
+        QtWidgets.QListWidgetItem(local_dict['name'], self.student_list)
         self.name_input.clear()
  
 def main():
@@ -63,7 +82,7 @@ def main():
             class_list = pickle.load(f)
 
     app = QtWidgets.QApplication(sys.argv)
-    ex = MainUILayout()
+    ex = ClassEditorWidget()
 
     exit_value = app.exec_()
 
