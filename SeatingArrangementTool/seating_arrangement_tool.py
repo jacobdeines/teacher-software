@@ -8,6 +8,22 @@ import sys
 import ctypes
 
 
+class Settings():
+    user32 = ctypes.windll.user32
+    screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+    WIDTH = int(screensize[0])
+    HEIGHT = int(screensize[1])
+    SUB_WIDTH = int((WIDTH * 2) / 3)
+    SUB_HEIGHT = int((HEIGHT * 2)/ 3)
+    MENU_WIDTH = int(WIDTH / 4)
+    SUB_X = int(WIDTH / 8)
+    SUB_Y = int(HEIGHT / 8)
+    
+
+    DEFAULT_COLS = 25
+    DEFAULT_ROWS = 25
+
+
 class RuleTypes(Enum):
     NONE = 0
     CANNOT_BE_NEXT_TO = 1
@@ -16,23 +32,10 @@ class RuleTypes(Enum):
     MUST_BE_NEAR = 4
     MUST_BE_IN_SPOT = 5
 
-class Settings():
-    user32 = ctypes.windll.user32
-    screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
-    WIDTH = int(screensize[0])
-    HEIGHT = int(screensize[1])
-    SUB_WIDTH = int((WIDTH * 2) / 3)
-    SUB_HEIGHT = int((HEIGHT * 2)/ 3)
-    SUB_X = int(WIDTH / 8)
-    SUB_Y = int(HEIGHT / 8)
-
-    DEFAULT_COLS = 30
-    DEFAULT_ROWS = 25
-
 
 class_list = []
 
-editting_grid = [[0]*Settings.DEFAULT_COLS]*Settings.DEFAULT_ROWS
+room_layout = [[0]*Settings.DEFAULT_COLS]*Settings.DEFAULT_ROWS
 
 
 class PicToggleButton(QAbstractButton):
@@ -94,7 +97,7 @@ class ClassEditorWidget(QWidget):
         self.student_editor_name.adjustSize()
         self.student_editor_name.setAlignment(Qt.AlignTop)
 
-        self.student_editor_talkative_button = PicToggleButton(QPixmap("speech-bubble.png"), QPixmap("speech-bubble-fill.png"))
+        self.student_editor_talkative_button = PicToggleButton(QPixmap("assets/speech-bubble.png"), QPixmap("assets/speech-bubble-fill.png"))
         self.student_editor_talkative_button.setMaximumSize(64, 64)
         self.student_editor_talkative_button.setCheckable(True)
         self.student_editor_talkative_button.setChecked(False)
@@ -182,7 +185,7 @@ class MainScreenWidget(QWidget):
  
     def UI(self):
         global class_list
-        global editting_grid
+        global room_layout
 
         self.class_editor = ClassEditorWidget()
 
@@ -209,6 +212,7 @@ class MainScreenWidget(QWidget):
 
         self.menu_widget = QWidget()
         self.menu_widget.setLayout(self.menu_grid)
+        self.menu_widget.setMinimumWidth(Settings.MENU_WIDTH)
 
         # Page layout
         self.main_grid = QGridLayout()
@@ -217,7 +221,7 @@ class MainScreenWidget(QWidget):
 
         self.setLayout(self.main_grid)
         self.setWindowTitle('Seating Arrangement Tool')
-        self.setWindowIcon(QIcon('chair.png'))
+        self.setWindowIcon(QIcon('assets/chair.png'))
         self.showMaximized()
 
     def classEditorButtonHandler(self):
@@ -228,8 +232,8 @@ def main():
     global class_list
 
     # Load data
-    if os.path.exists('class_list.p'):
-        with open('class_list.p', 'rb') as f:
+    if os.path.exists('user_data/class_list.p'):
+        with open('user_data/class_list.p', 'rb') as f:
             class_list = pickle.load(f)
 
     app = QApplication(sys.argv)
@@ -238,7 +242,7 @@ def main():
     exit_value = app.exec_()
 
     # Save data
-    with open('class_list.p', 'wb') as f:
+    with open('user_data/class_list.p', 'wb') as f:
         pickle.dump(class_list, f)
 
     sys.exit(exit_value)
