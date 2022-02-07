@@ -33,11 +33,6 @@ class RuleTypes(Enum):
     MUST_BE_IN_SPOT = 5
 
 
-class_list = []
-
-room_layout = [[0]*Settings.DEFAULT_COLS]*Settings.DEFAULT_ROWS
-
-
 class PicToggleButton(QAbstractButton):
     def __init__(self, pixmap, pixmap_active, parent=None):
         super(PicToggleButton, self).__init__(parent)
@@ -64,17 +59,50 @@ class PicToggleButton(QAbstractButton):
         self.update()
 
 
+class PicPushButton(QAbstractButton):
+    def __init__(self, pixmap, parent=None):
+        super(PicPushButton, self).__init__(parent)
+        self.pixmap = pixmap
+        self.parent = parent
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.drawPixmap(event.rect(), self.pixmap)
+
+
 class ClassEditorWidget(QWidget):
-    def __init__(self):
+    def __init__(self, filename):
         super().__init__()
+        self.filename = filename
+        self.class_name = filename.removesuffix('.p')
+
+        self.class_list = []
+
+        # Load data
+        if os.path.exists('user_data/class_lists/' + self.filename):
+            with open('user_data/class_lists/' + self.filename, 'rb') as f:
+                 self.class_list = pickle.load(f)
+
         self.UI()
  
     def UI(self):
-        global class_list
-
         # Class list editor
+        self.class_name_label = QLabel(self.class_name)
+        self.class_name_label_font = QFont("Times", 20)
+        self.class_name_label.setFont(self.class_name_label_font)
+
+        self.save_button = QPushButton('Save')
+        self.save_button.clicked.connect(self.saveButtonHandler)
+
+        self.class_name_grid = QGridLayout()
+        self.class_name_grid.addWidget(self.class_name_label, 0, 0)
+        self.class_name_grid.addWidget(self.save_button, 0, 1)
+
+        self.class_name_widget = QWidget()
+        self.class_name_widget.setLayout(self.class_name_grid)
+
         self.student_list = QListWidget()
-        for student in class_list:
+        for student in self.class_list:
             QListWidgetItem(student['name'], self.student_list)
         self.student_list.itemClicked.connect(self.nameClicked)
 
@@ -82,8 +110,9 @@ class ClassEditorWidget(QWidget):
         self.name_input.returnPressed.connect(self.onTextEnter)
 
         self.name_grid = QGridLayout()
-        self.name_grid.addWidget(self.student_list, 0, 0)
-        self.name_grid.addWidget(self.name_input, 1, 0)
+        self.name_grid.addWidget(self.class_name_widget, 0, 0)
+        self.name_grid.addWidget(self.student_list, 1, 0)
+        self.name_grid.addWidget(self.name_input, 2, 0)
         self.name_grid.setSpacing(5)
 
         self.name_widget = QWidget()
@@ -134,10 +163,20 @@ class ClassEditorWidget(QWidget):
         self.setGeometry(Settings.SUB_X, Settings.SUB_Y, Settings.SUB_WIDTH, Settings.SUB_HEIGHT)
         self.setWindowTitle('Class Editor')
 
-    def nameClicked(self, item):
-        global class_list
+    def saveButtonHandler(self):
+        if self.filename == '':
+            name_msg = QMessageBox()
+            name_msg.setText('Name this class before saving')
+            name_msg.setIcon(QMessageBox.Information)
+            name_msg.setWindowTitle(' ')
+            name_msg.exec_()
+        else:
+            with open('user_data/class_lists/' + self.filename, 'wb') as f:
+                pickle.dump(self.class_list, f)
 
-        for student in class_list:
+
+    def nameClicked(self, item):
+        for student in self.class_list:
             if student['name'] == item.text():
                 self.student_editor_name.setText(item.text())
                 self.student_editor_talkative_button.setChecked(student['talkative'])
@@ -145,21 +184,17 @@ class ClassEditorWidget(QWidget):
                 break
 
     def talkativeButtonHandler(self):
-        global class_list
-
-        for student in class_list:
+        for student in self.class_list:
             if student['name'] == self.student_editor_name.text():
                 student['talkative'] = not student['talkative']
                 self.student_editor_talkative_button.setChecked(student['talkative'])
 
     def onTextEnter(self):
-        global class_list
-
         value = self.name_input.text()
 
         if value != '':
             duplicate = False
-            for student in class_list:
+            for student in self.class_list:
                 if student['name'] == value:
                     duplicate = True
             if not duplicate:
@@ -167,7 +202,7 @@ class ClassEditorWidget(QWidget):
                 local_dict['talkative'] = False
                 rules = []
                 local_dict['rules'] = rules
-                class_list.append(local_dict)
+                self.class_list.append(local_dict)
                 QListWidgetItem(local_dict['name'], self.student_list)
             else:
                 dup_msg = QMessageBox()
@@ -178,17 +213,86 @@ class ClassEditorWidget(QWidget):
             self.name_input.clear()
 
 
-class MainScreenWidget(QWidget):
+class ClassListsWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.class_lists = QListWidget()
+
+        directory = 'user_data/class_lists'
+        for filename in os.listdir(directory):
+            f = os.path.join(directory, filename)
+            if os.path.isfile(f):
+                QListWidgetItem(filename.removesuffix('.p'), self.class_lists)
+
+        self.class_lists.itemClicked.connect(self.listNameClicked)
+
+        self.selected_class_list_name = ''
+
+        self.class_list_edit_button = PicPushButton(QPixmap("assets/edit.png"))
+        self.class_list_edit_button.setFixedSize(32, 32)
+        self.class_list_edit_button.clicked.connect(self.classListEditButtonHandler)
+
+        self.class_list_add_button = PicPushButton(QPixmap("assets/add.png"))
+        self.class_list_add_button.setFixedSize(32, 32)
+        self.class_list_add_button.clicked.connect(self.classListAddButtonHandler)
+
+        self.button_layout = QHBoxLayout()
+        self.button_layout.addWidget(self.class_list_add_button)
+        self.button_layout.addWidget(self.class_list_edit_button)
+
+        self.button_widget = QWidget()
+        self.button_widget.setLayout(self.button_layout)
+
+        self.grid = QGridLayout()
+        self.grid.addWidget(self.button_widget, 0, 0)
+        self.grid.addWidget(self.class_lists, 1, 0)
+
+        self.setLayout(self.grid)
+
+        self.show()
+
+    def listNameClicked(self, item):
+        self.selected_class_list_name = item.text()
+
+    def classListEditButtonHandler(self):
+        ex = ClassEditorWidget(self.selected_class_list_name + '.p')
+        ex.show()
+        
+        loop = QEventLoop()
+        ex.destroyed.connect(loop.quit)
+        loop.exec()
+
+    def classListAddButtonHandler(self):
+        name, exit_status = QInputDialog.getText(self, 'Input Dialog', 'Enter a class name:')
+
+        if exit_status and name != '':
+            class_list = []
+
+            with open('user_data/class_lists/' + name + '.p', 'wb') as f:
+                    pickle.dump(class_list, f)
+
+            self.updateClassLists()
+            print('updating list')
+
+    def updateClassLists(self):
+        self.class_lists.clear()
+
+        directory = 'user_data/class_lists'
+        for filename in os.listdir(directory):
+            f = os.path.join(directory, filename)
+            if os.path.isfile(f):
+                QListWidgetItem(filename.removesuffix('.p'), self.class_lists)
+
+        self.selected_class_list_name = ''
+
+
+class MainScreenWidget(QMainWindow):
     def __init__(self):
         super().__init__()
         self.UI()
  
     def UI(self):
-        global class_list
-        global room_layout
-
-        self.class_editor = ClassEditorWidget()
-
         # Editting grid
         self.editting_grid_grid = QGridLayout()
 
@@ -204,11 +308,10 @@ class MainScreenWidget(QWidget):
         self.editting_grid_widget.setMinimumWidth(Settings.SUB_WIDTH)
 
         # Menu
-        self.class_editor_button = QPushButton('Class Editor')
-        self.class_editor_button.clicked.connect(self.classEditorButtonHandler)
+        self.class_lists = ClassListsWidget()
 
         self.menu_grid = QGridLayout()
-        self.menu_grid.addWidget(self.class_editor_button, 0, 0)
+        self.menu_grid.addWidget(self.class_lists, 0, 0)
 
         self.menu_widget = QWidget()
         self.menu_widget.setLayout(self.menu_grid)
@@ -219,31 +322,26 @@ class MainScreenWidget(QWidget):
         self.main_grid.addWidget(self.editting_grid_widget, 0, 0)
         self.main_grid.addWidget(self.menu_widget, 0, 1)
 
-        self.setLayout(self.main_grid)
+        self.main_grid_widget = QWidget()
+        self.main_grid_widget.setLayout(self.main_grid)
+        self.setCentralWidget(self.main_grid_widget)
         self.setWindowTitle('Seating Arrangement Tool')
         self.setWindowIcon(QIcon('assets/chair.png'))
         self.showMaximized()
 
     def classEditorButtonHandler(self):
         self.class_editor.show()
+
+    def closeEvent(self, event):
+        for window in QApplication.topLevelWidgets():
+            window.close()
         
 
 def main():
-    global class_list
-
-    # Load data
-    if os.path.exists('user_data/class_list.p'):
-        with open('user_data/class_list.p', 'rb') as f:
-            class_list = pickle.load(f)
-
     app = QApplication(sys.argv)
     ex = MainScreenWidget()
 
     exit_value = app.exec_()
-
-    # Save data
-    with open('user_data/class_list.p', 'wb') as f:
-        pickle.dump(class_list, f)
 
     sys.exit(exit_value)
 
