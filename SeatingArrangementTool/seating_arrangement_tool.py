@@ -1,6 +1,7 @@
 from enum import Enum
 import os.path
 import pickle
+from tkinter import E
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
@@ -18,10 +19,12 @@ class Settings():
     MENU_WIDTH = int(WIDTH / 4)
     SUB_X = int(WIDTH / 8)
     SUB_Y = int(HEIGHT / 8)
-    
 
-    DEFAULT_COLS = 25
-    DEFAULT_ROWS = 25
+    MIN_ROWS = 3
+    MIN_COLS = 4
+    
+    MAX_ROWS = 24
+    MAX_COLS = 32
 
 
 class ListTypes(Enum):
@@ -45,8 +48,15 @@ class PicToggleButton(QAbstractButton):
         self.pixmap_active = pixmap_active
         self.parent = parent
 
+        self.setCheckable(True)
+        self.setChecked(False)
+
         self.pressed.connect(self.update)
         self.released.connect(self.update)
+
+        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy.setHeightForWidth(True)
+        self.setSizePolicy(sizePolicy)
 
     def paintEvent(self, event):
         if not self.isChecked():
@@ -62,6 +72,19 @@ class PicToggleButton(QAbstractButton):
 
     def leaveEvent(self, event):
         self.update()
+
+    def sizeHint(self):
+        return QSize(64, 64)
+
+    def heightForWidth(self, width):
+        return width
+
+    def resizeEvent(self, event):
+        # Create a square base size of 10x10 and scale it to the new size
+        # maintaining aspect ratio.
+        new_size = QSize(1, 1)
+        new_size.scale(event.size(), Qt.KeepAspectRatio)
+        self.resize(new_size)
 
 
 class PicPushButton(QAbstractButton):
@@ -106,6 +129,7 @@ class ClassEditorWidget(QWidget):
         self.class_name_widget = QWidget()
         self.class_name_widget.setLayout(self.class_name_grid)
 
+        # Class list
         self.student_list = QListWidget()
         for student in self.class_list:
             QListWidgetItem(student['name'], self.student_list)
@@ -133,8 +157,6 @@ class ClassEditorWidget(QWidget):
 
         self.student_editor_talkative_button = PicToggleButton(QPixmap("assets/speech-bubble.png"), QPixmap("assets/speech-bubble-fill.png"))
         self.student_editor_talkative_button.setMaximumSize(64, 64)
-        self.student_editor_talkative_button.setCheckable(True)
-        self.student_editor_talkative_button.setChecked(False)
         self.student_editor_talkative_button.clicked.connect(self.talkativeButtonHandler)
 
         self.student_editor_labels_grid = QGridLayout()
@@ -225,12 +247,21 @@ class RoomLayoutEditorWidget(QWidget):
         self.filename = filename
         self.layout_name = filename.removesuffix('.p')
 
-        self.layout = []
+        self.layout = {}
 
         # Load data
         if os.path.exists('user_data/room_layouts/' + self.filename):
             with open('user_data/room_layouts/' + self.filename, 'rb') as f:
                  self.layout = pickle.load(f)
+
+        if {} == self.layout:
+            self.layout['rows'] = Settings.MIN_ROWS
+            self.layout['cols'] = Settings.MIN_COLS
+            self.layout['list'] = []
+            for i in range(Settings.MAX_ROWS):
+                self.layout.append([])
+                for j in range(Settings.MAX_COLS):
+                    self.layout[i].append(0)
 
         self.UI()
  
@@ -242,6 +273,9 @@ class RoomLayoutEditorWidget(QWidget):
         self.save_button = QPushButton('Save')
         self.save_button.clicked.connect(self.saveButtonHandler)
 
+        self.clear_button = QPushButton('Clear')
+        self.clear_button.clicked.connect(self.clearButtonHandler)
+
         self.layout_name_grid = QGridLayout()
         self.layout_name_grid.addWidget(self.layout_name_label, 0, 0)
         self.layout_name_grid.addWidget(self.save_button, 0, 1)
@@ -249,10 +283,27 @@ class RoomLayoutEditorWidget(QWidget):
         self.layout_name_widget = QWidget()
         self.layout_name_widget.setLayout(self.layout_name_grid)
 
+        # Grid
+        self.layout_grid = QGridLayout()
+        self.cells = []
+        for i in range(Settings.MAX_ROWS):
+            self.cells.append([])
+            for j in range(Settings.MAX_COLS):
+                self.cells[i].append(PicToggleButton(QPixmap("assets/rounded_square.png"), QPixmap("assets/rounded_square_filled.png")))
+                self.cells[i][j].clicked.connect(lambda state, arg=(i,j): self.gridCellButtonCallback(arg))
+                self.layout_grid.addWidget(self.cells[i][j], i, j)
+                if 1 == self.layout['list'][i][j]:
+                    self.cells[i][j].setChecked(True)
+                else:
+                    self.cells[i][j].setChecked(False)
+
+        self.grid_widget = QWidget()
+        self.grid_widget.setLayout(self.layout_grid)
 
         # Page layout
         self.main_grid = QGridLayout()
         self.main_grid.addWidget(self.layout_name_widget, 0, 0)
+        self.main_grid.addWidget(self.grid_widget, 1, 0)
 
         self.setLayout(self.main_grid)
         self.setGeometry(Settings.SUB_X, Settings.SUB_Y, Settings.SUB_WIDTH, Settings.SUB_HEIGHT)
@@ -268,6 +319,23 @@ class RoomLayoutEditorWidget(QWidget):
         else:
             with open('user_data/room_layouts/' + self.filename, 'wb') as f:
                 pickle.dump(self.layout, f)
+
+    def clearButtonHandler(self):
+        for i in range(Settings.MAX_ROWS):
+            for j in range(Settings.MAX_COLS):
+                self.cells[i][j].setChecked(False)
+                self.layout['list'][i][j] = 0
+
+    def gridCellButtonCallback(self, row_col):
+        row = row_col[0]
+        col = row_col[1]
+
+        if 0 == self.layout['list'][row][col]:
+            self.layout['list'][row][col] = 1
+            self.cells[row][col].setChecked(True)
+        else:
+            self.layout['list'][row][col] = 0
+            self.cells[row][col].setChecked(False)
 
 
 class ListWidget(QWidget):
@@ -331,13 +399,20 @@ class ListWidget(QWidget):
     def addButtonHandler(self):
         name, exit_status = QInputDialog.getText(self, 'Input Dialog', 'Enter a name:')
         if exit_status and name != '':
-            empty_list = []
             if ListTypes.CLASS_LIST == self.list_type:
+                empty_list = []
                 with open('user_data/class_lists/' + name + '.p', 'wb') as f:
                         pickle.dump(empty_list, f)
             elif ListTypes.ROOM_LAYOUT == self.list_type:
+                room_layout = {'rows' : Settings.MIN_ROWS, 'cols' : Settings.MIN_COLS}
+                layout_list = []
+                for i in range(Settings.MAX_ROWS):
+                    layout_list.append([])
+                    for j in range(Settings.MAX_COLS):
+                        layout_list[i].append(0)
+                room_layout['list'] = layout_list
                 with open('user_data/room_layouts/' + name + '.p', 'wb') as f:
-                        pickle.dump(empty_list, f)
+                        pickle.dump(room_layout, f)
             self.updateList()
 
     def updateList(self):
@@ -358,10 +433,10 @@ class MainScreenWidget(QMainWindow):
         # Editting grid
         self.editting_grid_grid = QGridLayout()
 
-        self.editting_grid_buttons = [[0]*Settings.DEFAULT_COLS]*Settings.DEFAULT_ROWS
+        self.editting_grid_buttons = [[0]*Settings.MAX_COLS]*Settings.MAX_ROWS
 
-        for row in range(Settings.DEFAULT_ROWS):
-            for col in range(Settings.DEFAULT_COLS):
+        for row in range(Settings.MAX_ROWS):
+            for col in range(Settings.MAX_COLS):
                 self.editting_grid_buttons[row][col] = QPushButton('(' + str(row) + ',' + str(col) + ')')
                 self.editting_grid_grid.addWidget(self.editting_grid_buttons[row][col], row, col)
 
