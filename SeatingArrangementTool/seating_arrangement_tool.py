@@ -24,6 +24,11 @@ class Settings():
     DEFAULT_ROWS = 25
 
 
+class ListTypes(Enum):
+    CLASS_LIST = 0
+    ROOM_LAYOUT = 1
+
+
 class RuleTypes(Enum):
     NONE = 0
     CANNOT_BE_NEXT_TO = 1
@@ -73,6 +78,7 @@ class PicPushButton(QAbstractButton):
 class ClassEditorWidget(QWidget):
     def __init__(self, filename):
         super().__init__()
+
         self.filename = filename
         self.class_name = filename.removesuffix('.p')
 
@@ -86,7 +92,6 @@ class ClassEditorWidget(QWidget):
         self.UI()
  
     def UI(self):
-        # Class list editor
         self.class_name_label = QLabel(self.class_name)
         self.class_name_label_font = QFont("Times", 20)
         self.class_name_label.setFont(self.class_name_label_font)
@@ -213,78 +218,135 @@ class ClassEditorWidget(QWidget):
             self.name_input.clear()
 
 
-class ClassListsWidget(QWidget):
-    def __init__(self):
+class RoomLayoutEditorWidget(QWidget):
+    def __init__(self, filename):
         super().__init__()
 
-        self.class_lists = QListWidget()
+        self.filename = filename
+        self.layout_name = filename.removesuffix('.p')
 
-        directory = 'user_data/class_lists'
-        for filename in os.listdir(directory):
-            f = os.path.join(directory, filename)
+        self.layout = []
+
+        # Load data
+        if os.path.exists('user_data/room_layouts/' + self.filename):
+            with open('user_data/room_layouts/' + self.filename, 'rb') as f:
+                 self.layout = pickle.load(f)
+
+        self.UI()
+ 
+    def UI(self):
+        self.layout_name_label = QLabel(self.layout_name)
+        self.layout_name_label_font = QFont("Times", 20)
+        self.layout_name_label.setFont(self.layout_name_label_font)
+
+        self.save_button = QPushButton('Save')
+        self.save_button.clicked.connect(self.saveButtonHandler)
+
+        self.layout_name_grid = QGridLayout()
+        self.layout_name_grid.addWidget(self.layout_name_label, 0, 0)
+        self.layout_name_grid.addWidget(self.save_button, 0, 1)
+
+        self.layout_name_widget = QWidget()
+        self.layout_name_widget.setLayout(self.layout_name_grid)
+
+
+        # Page layout
+        self.main_grid = QGridLayout()
+        self.main_grid.addWidget(self.layout_name_widget, 0, 0)
+
+        self.setLayout(self.main_grid)
+        self.setGeometry(Settings.SUB_X, Settings.SUB_Y, Settings.SUB_WIDTH, Settings.SUB_HEIGHT)
+        self.setWindowTitle('Room Layout Editor')
+
+    def saveButtonHandler(self):
+        if self.filename == '':
+            name_msg = QMessageBox()
+            name_msg.setText('Name this layout before saving')
+            name_msg.setIcon(QMessageBox.Information)
+            name_msg.setWindowTitle(' ')
+            name_msg.exec_()
+        else:
+            with open('user_data/room_layouts/' + self.filename, 'wb') as f:
+                pickle.dump(self.layout, f)
+
+
+class ListWidget(QWidget):
+    def __init__(self, directory, list_type):
+        super().__init__()
+
+        self.directory = directory
+        self.list_type = list_type
+
+        self.list = QListWidget()
+
+        for filename in os.listdir(self.directory):
+            f = os.path.join(self.directory, filename)
             if os.path.isfile(f):
-                QListWidgetItem(filename.removesuffix('.p'), self.class_lists)
+                QListWidgetItem(filename.removesuffix('.p'), self.list)
 
-        self.class_lists.itemClicked.connect(self.listNameClicked)
+        self.list.itemClicked.connect(self.listItemClicked)
 
-        self.selected_class_list_name = ''
+        self.selected_list_item_name = ''
 
-        self.class_list_edit_button = PicPushButton(QPixmap("assets/edit.png"))
-        self.class_list_edit_button.setFixedSize(32, 32)
-        self.class_list_edit_button.clicked.connect(self.classListEditButtonHandler)
+        self.edit_button = PicPushButton(QPixmap("assets/edit.png"))
+        self.edit_button.setFixedSize(32, 32)
+        self.edit_button.clicked.connect(self.editButtonHandler)
 
-        self.class_list_add_button = PicPushButton(QPixmap("assets/add.png"))
-        self.class_list_add_button.setFixedSize(32, 32)
-        self.class_list_add_button.clicked.connect(self.classListAddButtonHandler)
+        self.add_button = PicPushButton(QPixmap("assets/add.png"))
+        self.add_button.setFixedSize(32, 32)
+        self.add_button.clicked.connect(self.addButtonHandler)
 
         self.button_layout = QHBoxLayout()
-        self.button_layout.addWidget(self.class_list_add_button)
-        self.button_layout.addWidget(self.class_list_edit_button)
+        self.button_layout.addWidget(self.add_button)
+        self.button_layout.addWidget(self.edit_button)
 
         self.button_widget = QWidget()
         self.button_widget.setLayout(self.button_layout)
 
         self.grid = QGridLayout()
         self.grid.addWidget(self.button_widget, 0, 0)
-        self.grid.addWidget(self.class_lists, 1, 0)
+        self.grid.addWidget(self.list, 1, 0)
 
         self.setLayout(self.grid)
 
         self.show()
 
-    def listNameClicked(self, item):
-        self.selected_class_list_name = item.text()
+    def listItemClicked(self, item):
+        self.selected_list_item_name = item.text()
 
-    def classListEditButtonHandler(self):
-        ex = ClassEditorWidget(self.selected_class_list_name + '.p')
-        ex.show()
-        
-        loop = QEventLoop()
-        ex.destroyed.connect(loop.quit)
-        loop.exec()
+    def editButtonHandler(self):
+        if ListTypes.CLASS_LIST == self.list_type:
+            ex = ClassEditorWidget(self.selected_list_item_name + '.p')
+            ex.show()
+            loop = QEventLoop()
+            ex.destroyed.connect(loop.quit)
+            loop.exec()
+        elif ListTypes.ROOM_LAYOUT == self.list_type:
+            ex = RoomLayoutEditorWidget(self.selected_list_item_name + '.p')
+            ex.show()
+            loop = QEventLoop()
+            ex.destroyed.connect(loop.quit)
+            loop.exec()
 
-    def classListAddButtonHandler(self):
-        name, exit_status = QInputDialog.getText(self, 'Input Dialog', 'Enter a class name:')
-
+    def addButtonHandler(self):
+        name, exit_status = QInputDialog.getText(self, 'Input Dialog', 'Enter a name:')
         if exit_status and name != '':
-            class_list = []
+            empty_list = []
+            if ListTypes.CLASS_LIST == self.list_type:
+                with open('user_data/class_lists/' + name + '.p', 'wb') as f:
+                        pickle.dump(empty_list, f)
+            elif ListTypes.ROOM_LAYOUT == self.list_type:
+                with open('user_data/room_layouts/' + name + '.p', 'wb') as f:
+                        pickle.dump(empty_list, f)
+            self.updateList()
 
-            with open('user_data/class_lists/' + name + '.p', 'wb') as f:
-                    pickle.dump(class_list, f)
-
-            self.updateClassLists()
-            print('updating list')
-
-    def updateClassLists(self):
-        self.class_lists.clear()
-
-        directory = 'user_data/class_lists'
-        for filename in os.listdir(directory):
-            f = os.path.join(directory, filename)
+    def updateList(self):
+        self.list.clear()
+        for filename in os.listdir(self.directory):
+            f = os.path.join(self.directory, filename)
             if os.path.isfile(f):
-                QListWidgetItem(filename.removesuffix('.p'), self.class_lists)
-
-        self.selected_class_list_name = ''
+                QListWidgetItem(filename.removesuffix('.p'), self.list)
+        self.selected_list_item_name = ''
 
 
 class MainScreenWidget(QMainWindow):
@@ -308,10 +370,12 @@ class MainScreenWidget(QMainWindow):
         self.editting_grid_widget.setMinimumWidth(Settings.SUB_WIDTH)
 
         # Menu
-        self.class_lists = ClassListsWidget()
+        self.class_lists = ListWidget('user_data/class_lists', ListTypes.CLASS_LIST)
+        self.room_layouts = ListWidget('user_data/room_layouts', ListTypes.ROOM_LAYOUT)
 
         self.menu_grid = QGridLayout()
         self.menu_grid.addWidget(self.class_lists, 0, 0)
+        self.menu_grid.addWidget(self.room_layouts, 1, 0)
 
         self.menu_widget = QWidget()
         self.menu_widget.setLayout(self.menu_grid)
