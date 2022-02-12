@@ -21,9 +21,9 @@ class Settings():
     SUB_Y = int(HEIGHT / 8)
 
     MIN_ROWS = 3
-    MIN_COLS = 6
-    
     MAX_ROWS = 15
+    
+    MIN_COLS = 6
     MAX_COLS = 30
 
 
@@ -189,14 +189,7 @@ class ClassEditorWidget(QWidget):
         self.setWindowTitle('Class Editor')
 
     def saveButtonHandler(self):
-        if self.filename == '':
-            name_msg = QMessageBox()
-            name_msg.setText('Name this class before saving')
-            name_msg.setIcon(QMessageBox.Information)
-            name_msg.setWindowTitle(' ')
-            name_msg.exec_()
-        else:
-            with open('user_data/class_lists/' + self.filename, 'wb') as f:
+        with open('user_data/class_lists/' + self.filename, 'wb') as f:
                 pickle.dump(self.class_list, f)
 
 
@@ -343,14 +336,7 @@ class RoomLayoutEditorWidget(QWidget):
         self.setWindowTitle('Room Layout Editor')
 
     def saveButtonHandler(self):
-        if self.filename == '':
-            name_msg = QMessageBox()
-            name_msg.setText('Name this layout before saving')
-            name_msg.setIcon(QMessageBox.Information)
-            name_msg.setWindowTitle(' ')
-            name_msg.exec_()
-        else:
-            with open('user_data/room_layouts/' + self.filename, 'wb') as f:
+        with open('user_data/room_layouts/' + self.filename, 'wb') as f:
                 pickle.dump(self.layout, f)
 
     def clearButtonHandler(self):
@@ -482,7 +468,7 @@ class ListWidget(QWidget):
                 loop.exec()
 
     def addButtonHandler(self):
-        name, exit_status = QInputDialog.getText(self, 'Input Dialog', 'Enter a name:')
+        name, exit_status = QInputDialog.getText(self, 'New', 'Enter a name:')
         if exit_status and name != '':
             if ListTypes.CLASS_LIST == self.list_type:
                 empty_list = []
@@ -523,19 +509,36 @@ class MainScreenWidget(QMainWindow):
         self.UI()
  
     def UI(self):
-        # Editting grid
-        self.editting_grid_grid = QGridLayout()
+        # Grid
+        self.layout = {}
+        self.layout['rows'] = Settings.MIN_ROWS
+        self.layout['cols'] = Settings.MIN_COLS
+        self.layout['list'] = []
+        for i in range(Settings.MAX_ROWS):
+            self.layout['list'].append([])
+            for j in range(Settings.MAX_COLS):
+                self.layout['list'][i].append(0)
 
-        self.editting_grid_buttons = [[0]*Settings.MAX_COLS]*Settings.MAX_ROWS
+        self.layout_grid = QGridLayout()
+        self.cells = []
+        for i in range(Settings.MAX_ROWS):
+            self.cells.append([])
+            for j in range(Settings.MAX_COLS):
+                self.cells[i].append(PicToggleButton(QPixmap("assets/rounded_square.png"), QPixmap("assets/rounded_square_filled.png")))
+                self.cells[i][j].clicked.connect(lambda state, arg=(i,j): self.gridCellButtonCallback(arg))
+                if 1 == self.layout['list'][i][j]:
+                    self.cells[i][j].setChecked(True)
+                else:
+                    self.cells[i][j].setChecked(False)
+                self.layout_grid.addWidget(self.cells[i][j], i, j)
 
-        for row in range(Settings.MAX_ROWS):
-            for col in range(Settings.MAX_COLS):
-                self.editting_grid_buttons[row][col] = QPushButton('(' + str(row) + ',' + str(col) + ')')
-                self.editting_grid_grid.addWidget(self.editting_grid_buttons[row][col], row, col)
+                # if i >= self.layout['rows'] or j >= self.layout['cols']:
+                #      self.cells[i][j].hide()
+                self.cells[i][j].hide()
 
-        self.editting_grid_widget = QWidget()
-        self.editting_grid_widget.setLayout(self.editting_grid_grid)
-        self.editting_grid_widget.setMinimumWidth(Settings.SUB_WIDTH)
+        self.grid_widget = QWidget()
+        self.grid_widget.setLayout(self.layout_grid)
+        self.grid_widget.setMinimumWidth(Settings.SUB_WIDTH)
 
         # Menu
         self.class_lists = ListWidget('user_data/class_lists', ListTypes.CLASS_LIST, 'Class Lists')
@@ -551,7 +554,7 @@ class MainScreenWidget(QMainWindow):
 
         # Page layout
         self.main_grid = QGridLayout()
-        self.main_grid.addWidget(self.editting_grid_widget, 0, 0)
+        self.main_grid.addWidget(self.grid_widget, 0, 0)
         self.main_grid.addWidget(self.menu_widget, 0, 1)
 
         self.main_grid_widget = QWidget()
@@ -561,12 +564,20 @@ class MainScreenWidget(QMainWindow):
         self.setWindowIcon(QIcon('assets/chair.png'))
         self.showMaximized()
 
-    def classEditorButtonHandler(self):
-        self.class_editor.show()
-
     def closeEvent(self, event):
         for window in QApplication.topLevelWidgets():
             window.close()
+
+    def gridCellButtonCallback(self, row_col):
+        row = row_col[0]
+        col = row_col[1]
+
+        if 0 == self.layout['list'][row][col]:
+            self.layout['list'][row][col] = 1
+            self.cells[row][col].setChecked(True)
+        else:
+            self.layout['list'][row][col] = 0
+            self.cells[row][col].setChecked(False)
         
 
 def main():
