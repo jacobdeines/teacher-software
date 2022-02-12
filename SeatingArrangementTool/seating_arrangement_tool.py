@@ -259,9 +259,9 @@ class RoomLayoutEditorWidget(QWidget):
             self.layout['cols'] = Settings.MIN_COLS
             self.layout['list'] = []
             for i in range(Settings.MAX_ROWS):
-                self.layout.append([])
+                self.layout['list'].append([])
                 for j in range(Settings.MAX_COLS):
-                    self.layout[i].append(0)
+                    self.layout['list'][i].append(0)
 
         self.UI()
  
@@ -339,11 +339,12 @@ class RoomLayoutEditorWidget(QWidget):
 
 
 class ListWidget(QWidget):
-    def __init__(self, directory, list_type):
+    def __init__(self, directory, list_type, title):
         super().__init__()
 
         self.directory = directory
         self.list_type = list_type
+        self.title = title
 
         self.list = QListWidget()
 
@@ -356,6 +357,10 @@ class ListWidget(QWidget):
 
         self.selected_list_item_name = ''
 
+        self.title_label = QLabel(self.title)
+        self.title_label_font = QFont("Times", 20)
+        self.title_label.setFont(self.title_label_font)
+
         self.edit_button = PicPushButton(QPixmap("assets/edit.png"))
         self.edit_button.setFixedSize(32, 32)
         self.edit_button.clicked.connect(self.editButtonHandler)
@@ -364,16 +369,22 @@ class ListWidget(QWidget):
         self.add_button.setFixedSize(32, 32)
         self.add_button.clicked.connect(self.addButtonHandler)
 
+        self.delete_button = PicPushButton(QPixmap("assets/delete.png"))
+        self.delete_button.setFixedSize(32, 32)
+        self.delete_button.clicked.connect(self.deleteButtonHandler)
+
         self.button_layout = QHBoxLayout()
         self.button_layout.addWidget(self.add_button)
         self.button_layout.addWidget(self.edit_button)
+        self.button_layout.addWidget(self.delete_button)
 
         self.button_widget = QWidget()
         self.button_widget.setLayout(self.button_layout)
 
         self.grid = QGridLayout()
-        self.grid.addWidget(self.button_widget, 0, 0)
-        self.grid.addWidget(self.list, 1, 0)
+        self.grid.addWidget(self.title_label, 0, 0)
+        self.grid.addWidget(self.button_widget, 1, 0)
+        self.grid.addWidget(self.list, 2, 0)
 
         self.setLayout(self.grid)
 
@@ -383,18 +394,19 @@ class ListWidget(QWidget):
         self.selected_list_item_name = item.text()
 
     def editButtonHandler(self):
-        if ListTypes.CLASS_LIST == self.list_type:
-            ex = ClassEditorWidget(self.selected_list_item_name + '.p')
-            ex.show()
-            loop = QEventLoop()
-            ex.destroyed.connect(loop.quit)
-            loop.exec()
-        elif ListTypes.ROOM_LAYOUT == self.list_type:
-            ex = RoomLayoutEditorWidget(self.selected_list_item_name + '.p')
-            ex.show()
-            loop = QEventLoop()
-            ex.destroyed.connect(loop.quit)
-            loop.exec()
+        if '' != self.selected_list_item_name:
+            if ListTypes.CLASS_LIST == self.list_type:
+                ex = ClassEditorWidget(self.selected_list_item_name + '.p')
+                ex.show()
+                loop = QEventLoop()
+                ex.destroyed.connect(loop.quit)
+                loop.exec()
+            elif ListTypes.ROOM_LAYOUT == self.list_type:
+                ex = RoomLayoutEditorWidget(self.selected_list_item_name + '.p')
+                ex.show()
+                loop = QEventLoop()
+                ex.destroyed.connect(loop.quit)
+                loop.exec()
 
     def addButtonHandler(self):
         name, exit_status = QInputDialog.getText(self, 'Input Dialog', 'Enter a name:')
@@ -413,6 +425,14 @@ class ListWidget(QWidget):
                 room_layout['list'] = layout_list
                 with open('user_data/room_layouts/' + name + '.p', 'wb') as f:
                         pickle.dump(room_layout, f)
+            self.updateList()
+
+    def deleteButtonHandler(self):
+        if '' != self.selected_list_item_name:
+            if ListTypes.CLASS_LIST == self.list_type:
+                os.remove('user_data/class_lists/' + self.selected_list_item_name + '.p')
+            elif ListTypes.ROOM_LAYOUT == self.list_type:
+                os.remove('user_data/room_layouts/' + self.selected_list_item_name + '.p')
             self.updateList()
 
     def updateList(self):
@@ -445,8 +465,8 @@ class MainScreenWidget(QMainWindow):
         self.editting_grid_widget.setMinimumWidth(Settings.SUB_WIDTH)
 
         # Menu
-        self.class_lists = ListWidget('user_data/class_lists', ListTypes.CLASS_LIST)
-        self.room_layouts = ListWidget('user_data/room_layouts', ListTypes.ROOM_LAYOUT)
+        self.class_lists = ListWidget('user_data/class_lists', ListTypes.CLASS_LIST, 'Class Lists')
+        self.room_layouts = ListWidget('user_data/room_layouts', ListTypes.ROOM_LAYOUT, "Room Layouts")
 
         self.menu_grid = QGridLayout()
         self.menu_grid.addWidget(self.class_lists, 0, 0)
