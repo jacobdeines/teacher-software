@@ -21,10 +21,10 @@ class Settings():
     SUB_Y = int(HEIGHT / 8)
 
     MIN_ROWS = 3
-    MIN_COLS = 4
+    MIN_COLS = 6
     
-    MAX_ROWS = 24
-    MAX_COLS = 32
+    MAX_ROWS = 15
+    MAX_COLS = 30
 
 
 class ListTypes(Enum):
@@ -80,8 +80,6 @@ class PicToggleButton(QAbstractButton):
         return width
 
     def resizeEvent(self, event):
-        # Create a square base size of 10x10 and scale it to the new size
-        # maintaining aspect ratio.
         new_size = QSize(1, 1)
         new_size.scale(event.size(), Qt.KeepAspectRatio)
         self.resize(new_size)
@@ -279,9 +277,11 @@ class RoomLayoutEditorWidget(QWidget):
         self.layout_name_grid = QGridLayout()
         self.layout_name_grid.addWidget(self.layout_name_label, 0, 0)
         self.layout_name_grid.addWidget(self.save_button, 0, 1)
+        self.layout_name_grid.addWidget(self.clear_button, 0, 2)
 
         self.layout_name_widget = QWidget()
         self.layout_name_widget.setLayout(self.layout_name_grid)
+        self.layout_name_widget.setMaximumHeight(80)
 
         # Grid
         self.layout_grid = QGridLayout()
@@ -291,19 +291,52 @@ class RoomLayoutEditorWidget(QWidget):
             for j in range(Settings.MAX_COLS):
                 self.cells[i].append(PicToggleButton(QPixmap("assets/rounded_square.png"), QPixmap("assets/rounded_square_filled.png")))
                 self.cells[i][j].clicked.connect(lambda state, arg=(i,j): self.gridCellButtonCallback(arg))
-                self.layout_grid.addWidget(self.cells[i][j], i, j)
                 if 1 == self.layout['list'][i][j]:
                     self.cells[i][j].setChecked(True)
                 else:
                     self.cells[i][j].setChecked(False)
+                self.layout_grid.addWidget(self.cells[i][j], i, j)
+
+                if i >= self.layout['rows'] or j >= self.layout['cols']:
+                     self.cells[i][j].hide()
 
         self.grid_widget = QWidget()
         self.grid_widget.setLayout(self.layout_grid)
+
+        # Add/remove row/col buttons
+        self.add_row_button = PicPushButton(QPixmap("assets/add.png"))
+        self.add_row_button.setFixedSize(32, 32)
+        self.add_row_button.clicked.connect(self.addRowButtonCallback)
+        self.subtract_row_button = PicPushButton(QPixmap("assets/subtract.png"))
+        self.subtract_row_button.setFixedSize(32, 32)
+        self.subtract_row_button.clicked.connect(self.subtractRowButtonCallback)
+        self.add_col_button = PicPushButton(QPixmap("assets/add.png"))
+        self.add_col_button.setFixedSize(32, 32)
+        self.add_col_button.clicked.connect(self.addColButtonCallback)
+        self.subtract_col_button = PicPushButton(QPixmap("assets/subtract.png"))
+        self.subtract_col_button.setFixedSize(32, 32)
+        self.subtract_col_button.clicked.connect(self.subtractColButtonCallback)
+
+        self.row_button_grid = QGridLayout()
+        self.row_button_grid.addWidget(self.add_row_button, 0, 0)
+        self.row_button_grid.addWidget(self.subtract_row_button, 0, 1)
+        self.row_button_widget = QWidget()
+        self.row_button_widget.setLayout(self.row_button_grid)
+        self.row_button_widget.setMaximumHeight(50)
+        
+        self.col_button_grid = QGridLayout()
+        self.col_button_grid.addWidget(self.add_col_button, 0, 0)
+        self.col_button_grid.addWidget(self.subtract_col_button, 1, 0)
+        self.col_button_widget = QWidget()
+        self.col_button_widget.setLayout(self.col_button_grid)
+        self.col_button_widget.setMaximumWidth(50)
 
         # Page layout
         self.main_grid = QGridLayout()
         self.main_grid.addWidget(self.layout_name_widget, 0, 0)
         self.main_grid.addWidget(self.grid_widget, 1, 0)
+        self.main_grid.addWidget(self.row_button_widget, 2, 0)
+        self.main_grid.addWidget(self.col_button_widget, 1, 1)
 
         self.setLayout(self.main_grid)
         self.setGeometry(Settings.SUB_X, Settings.SUB_Y, Settings.SUB_WIDTH, Settings.SUB_HEIGHT)
@@ -336,6 +369,46 @@ class RoomLayoutEditorWidget(QWidget):
         else:
             self.layout['list'][row][col] = 0
             self.cells[row][col].setChecked(False)
+
+    def addRowButtonCallback(self):
+        if self.layout['rows'] + 1 <= Settings.MAX_ROWS:
+            self.layout['rows'] = self.layout['rows'] + 1
+            for j in range(self.layout['cols']):
+                self.cells[self.layout['rows'] - 1][j].show()
+            self.resetGrid()
+
+    def subtractRowButtonCallback(self):
+        if self.layout['rows'] - 1 >= Settings.MIN_ROWS:
+            self.layout['rows'] = self.layout['rows'] - 1
+            for j in range(self.layout['cols']):
+                self.cells[self.layout['rows']][j].hide()
+            self.resetGrid()
+
+    def addColButtonCallback(self):
+        if self.layout['cols'] + 1 <= Settings.MAX_COLS:
+            self.layout['cols'] = self.layout['cols'] + 1
+            for i in range(self.layout['rows']):
+                self.cells[i][self.layout['cols'] - 1].show()
+            self.resetGrid()
+
+    def subtractColButtonCallback(self):
+        if self.layout['cols'] - 1 >= Settings.MIN_COLS:
+            self.layout['cols'] = self.layout['cols'] - 1
+            for i in range(self.layout['rows']):
+                self.cells[i][self.layout['cols']].hide()
+            self.resetGrid()
+
+    def resetGrid(self):
+        for i in range(Settings.MAX_ROWS):
+            for j in range(Settings.MAX_COLS):
+                if i < self.layout['rows'] and j < self.layout['cols']:
+                    if 1 == self.layout['list'][i][j]:
+                        self.cells[i][j].setChecked(True)
+                    else:
+                        self.cells[i][j].setChecked(False)
+                else:
+                    self.layout['list'][i][j] = 0
+                    self.cells[i][j].setChecked(False)
 
 
 class ListWidget(QWidget):
