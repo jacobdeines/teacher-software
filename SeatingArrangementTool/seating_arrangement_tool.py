@@ -6,26 +6,21 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 import sys
-import ctypes
 import random
 
 
-class Settings():
-    user32 = ctypes.windll.user32
-    screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
-    WIDTH = int(screensize[0])
-    HEIGHT = int(screensize[1])
-    SUB_WIDTH = int((WIDTH * 2) / 3)
-    SUB_HEIGHT = int((HEIGHT * 2)/ 3)
-    MENU_WIDTH = int(WIDTH / 4)
-    SUB_X = int(WIDTH / 8)
-    SUB_Y = int(HEIGHT / 8)
-
-    MIN_ROWS = 3
-    MAX_ROWS = 15
-    
-    MIN_COLS = 6
-    MAX_COLS = 30
+# Global settings values (assigned in main)
+WIDTH = 0
+HEIGHT = 0
+SUB_WIDTH = 0
+SUB_HEIGHT = 0
+MENU_WIDTH = 0
+SUB_X = 0
+SUB_Y = 0
+MIN_ROWS = 0
+MAX_ROWS = 0
+MIN_COLS = 0
+MAX_COLS = 0
 
 
 class ListTypes(Enum):
@@ -175,10 +170,10 @@ class ClassEditorWidget(QWidget):
         
         # Page layout
         self.name_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.name_widget.setMinimumWidth(int(Settings.SUB_WIDTH / 2))
+        self.name_widget.setMinimumWidth(int(SUB_WIDTH / 2))
 
         self.student_editor_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.name_widget.setMinimumWidth(int(Settings.SUB_WIDTH / 2))
+        self.name_widget.setMinimumWidth(int(SUB_WIDTH / 2))
 
         self.main_grid = QGridLayout()
         self.main_grid.addWidget(self.name_widget, 0, 0)
@@ -186,7 +181,7 @@ class ClassEditorWidget(QWidget):
         self.student_editor_widget.hide()
 
         self.setLayout(self.main_grid)
-        self.setGeometry(Settings.SUB_X, Settings.SUB_Y, Settings.SUB_WIDTH, Settings.SUB_HEIGHT)
+        self.setGeometry(SUB_X, SUB_Y, SUB_WIDTH, SUB_HEIGHT)
         self.setWindowTitle('Class Editor')
 
     def saveButtonHandler(self):
@@ -247,12 +242,12 @@ class RoomLayoutEditorWidget(QWidget):
                  self.layout = pickle.load(f)
 
         if {} == self.layout:
-            self.layout['rows'] = Settings.MIN_ROWS
-            self.layout['cols'] = Settings.MIN_COLS
+            self.layout['rows'] = MIN_ROWS
+            self.layout['cols'] = MIN_COLS
             self.layout['list'] = []
-            for i in range(Settings.MAX_ROWS):
+            for i in range(MAX_ROWS):
                 self.layout['list'].append([])
-                for j in range(Settings.MAX_COLS):
+                for j in range(MAX_COLS):
                     self.layout['list'][i].append(0)
 
         self.UI()
@@ -280,9 +275,9 @@ class RoomLayoutEditorWidget(QWidget):
         # Grid
         self.layout_grid = QGridLayout()
         self.cells = []
-        for i in range(Settings.MAX_ROWS):
+        for i in range(MAX_ROWS):
             self.cells.append([])
-            for j in range(Settings.MAX_COLS):
+            for j in range(MAX_COLS):
                 self.cells[i].append(PicToggleButton(QPixmap("assets/rounded_square.png"), QPixmap("assets/rounded_square_filled.png")))
                 self.cells[i][j].clicked.connect(lambda state, arg=(i,j): self.gridCellButtonCallback(arg))
                 if 1 == self.layout['list'][i][j]:
@@ -333,7 +328,7 @@ class RoomLayoutEditorWidget(QWidget):
         self.main_grid.addWidget(self.col_button_widget, 1, 1)
 
         self.setLayout(self.main_grid)
-        self.setGeometry(Settings.SUB_X, Settings.SUB_Y, Settings.SUB_WIDTH, Settings.SUB_HEIGHT)
+        self.setGeometry(SUB_X, SUB_Y, SUB_WIDTH, SUB_HEIGHT)
         self.setWindowTitle('Room Layout Editor')
 
     def saveButtonHandler(self):
@@ -341,8 +336,8 @@ class RoomLayoutEditorWidget(QWidget):
                 pickle.dump(self.layout, f)
 
     def clearButtonHandler(self):
-        for i in range(Settings.MAX_ROWS):
-            for j in range(Settings.MAX_COLS):
+        for i in range(MAX_ROWS):
+            for j in range(MAX_COLS):
                 self.cells[i][j].setChecked(False)
                 self.layout['list'][i][j] = 0
 
@@ -358,36 +353,36 @@ class RoomLayoutEditorWidget(QWidget):
             self.cells[row][col].setChecked(False)
 
     def addRowButtonCallback(self):
-        if self.layout['rows'] + 1 <= Settings.MAX_ROWS:
+        if self.layout['rows'] + 1 <= MAX_ROWS:
             self.layout['rows'] = self.layout['rows'] + 1
             for j in range(self.layout['cols']):
                 self.cells[self.layout['rows'] - 1][j].show()
             self.resetGrid()
 
     def subtractRowButtonCallback(self):
-        if self.layout['rows'] - 1 >= Settings.MIN_ROWS:
+        if self.layout['rows'] - 1 >= MIN_ROWS:
             self.layout['rows'] = self.layout['rows'] - 1
             for j in range(self.layout['cols']):
                 self.cells[self.layout['rows']][j].hide()
             self.resetGrid()
 
     def addColButtonCallback(self):
-        if self.layout['cols'] + 1 <= Settings.MAX_COLS:
+        if self.layout['cols'] + 1 <= MAX_COLS:
             self.layout['cols'] = self.layout['cols'] + 1
             for i in range(self.layout['rows']):
                 self.cells[i][self.layout['cols'] - 1].show()
             self.resetGrid()
 
     def subtractColButtonCallback(self):
-        if self.layout['cols'] - 1 >= Settings.MIN_COLS:
+        if self.layout['cols'] - 1 >= MIN_COLS:
             self.layout['cols'] = self.layout['cols'] - 1
             for i in range(self.layout['rows']):
                 self.cells[i][self.layout['cols']].hide()
             self.resetGrid()
 
     def resetGrid(self):
-        for i in range(Settings.MAX_ROWS):
-            for j in range(Settings.MAX_COLS):
+        for i in range(MAX_ROWS):
+            for j in range(MAX_COLS):
                 if i < self.layout['rows'] and j < self.layout['cols']:
                     if 1 == self.layout['list'][i][j]:
                         self.cells[i][j].setChecked(True)
@@ -476,11 +471,11 @@ class ListWidget(QWidget):
                 with open('user_data/class_lists/' + name + '.p', 'wb') as f:
                         pickle.dump(empty_list, f)
             elif ListTypes.ROOM_LAYOUT == self.list_type:
-                room_layout = {'rows' : Settings.MIN_ROWS, 'cols' : Settings.MIN_COLS}
+                room_layout = {'rows' : MIN_ROWS, 'cols' : MIN_COLS}
                 layout_list = []
-                for i in range(Settings.MAX_ROWS):
+                for i in range(MAX_ROWS):
                     layout_list.append([])
-                    for j in range(Settings.MAX_COLS):
+                    for j in range(MAX_COLS):
                         layout_list[i].append(0)
                 room_layout['list'] = layout_list
                 with open('user_data/room_layouts/' + name + '.p', 'wb') as f:
@@ -578,20 +573,20 @@ class MainScreenWidget(QMainWindow):
     def UI(self):
         # Grid
         self.layout = {}
-        self.layout['rows'] = Settings.MIN_ROWS
-        self.layout['cols'] = Settings.MIN_COLS
+        self.layout['rows'] = MIN_ROWS
+        self.layout['cols'] = MIN_COLS
         self.layout['list'] = []
-        for i in range(Settings.MAX_ROWS):
+        for i in range(MAX_ROWS):
             self.layout['list'].append([])
-            for j in range(Settings.MAX_COLS):
+            for j in range(MAX_COLS):
                 place_dict = {'occupied' : 0, 'name' : ''}
                 self.layout['list'][i].append(place_dict)
 
         self.layout_grid = QGridLayout()
         self.cells = []
-        for i in range(Settings.MAX_ROWS):
+        for i in range(MAX_ROWS):
             self.cells.append([])
-            for j in range(Settings.MAX_COLS):
+            for j in range(MAX_COLS):
                 self.cells[i].append(PicTextToggleButton(QPixmap("assets/rounded_square.png"), QPixmap("assets/rounded_square_filled.png"), ''))
                 self.cells[i][j].clicked.connect(lambda state, arg=(i,j): self.gridCellButtonCallback(arg))
                 self.cells[i][j].setChecked(False)
@@ -600,22 +595,27 @@ class MainScreenWidget(QMainWindow):
 
         self.grid_widget = QWidget()
         self.grid_widget.setLayout(self.layout_grid)
-        self.grid_widget.setMinimumWidth(Settings.SUB_WIDTH)
+        self.grid_widget.setMinimumWidth(SUB_WIDTH)
 
         # Menu
         self.class_lists = ListWidget('user_data/class_lists', ListTypes.CLASS_LIST, 'Class Lists')
         self.room_layouts = ListWidget('user_data/room_layouts', ListTypes.ROOM_LAYOUT, "Room Layouts")
+
         self.generate_button = QPushButton('Generate')
         self.generate_button.clicked.connect(self.generateButtonCallback)
+
+        self.clear_button = QPushButton('Clear')
+        self.clear_button.clicked.connect(self.resetLayout)
 
         self.menu_grid = QGridLayout()
         self.menu_grid.addWidget(self.class_lists, 0, 0)
         self.menu_grid.addWidget(self.room_layouts, 1, 0)
         self.menu_grid.addWidget(self.generate_button, 2, 0)
+        self.menu_grid.addWidget(self.clear_button, 3, 0)
 
         self.menu_widget = QWidget()
         self.menu_widget.setLayout(self.menu_grid)
-        self.menu_widget.setMinimumWidth(Settings.MENU_WIDTH)
+        self.menu_widget.setMinimumWidth(MENU_WIDTH)
 
         # Page layout
         self.main_grid = QGridLayout()
@@ -716,15 +716,44 @@ class MainScreenWidget(QMainWindow):
             self.cells[row][col].setChecked(False)
 
     def resetLayout(self):
-        for i in range(Settings.MAX_ROWS):
-            for j in range(Settings.MAX_COLS):
+        for i in range(MAX_ROWS):
+            for j in range(MAX_COLS):
                 self.layout['list'][i][j] = 0
                 self.cells[i][j].setChecked(False)
+                self.cells[i][j].setText('')
                 self.cells[i][j].hide()
         
 
 def main():
+    global WIDTH
+    global HEIGHT
+    global SUB_WIDTH
+    global SUB_HEIGHT
+    global MENU_WIDTH
+    global SUB_X
+    global SUB_Y
+    global MIN_ROWS
+    global MAX_ROWS
+    global MIN_COLS
+    global MAX_COLS
+
     app = QApplication(sys.argv)
+
+    screen = QApplication.primaryScreen()
+    screensize = screen.size()
+
+    WIDTH = int(screensize.width())
+    HEIGHT = int(screensize.height())
+    SUB_WIDTH = int((WIDTH * 2) / 3)
+    SUB_HEIGHT = int((HEIGHT * 2)/ 3)
+    MENU_WIDTH = int(WIDTH / 4)
+    SUB_X = int(WIDTH / 8)
+    SUB_Y = int(HEIGHT / 8)
+    MIN_ROWS = 3
+    MAX_ROWS = 15
+    MIN_COLS = 6
+    MAX_COLS = 30
+
     ex = MainScreenWidget()
 
     exit_value = app.exec_()
