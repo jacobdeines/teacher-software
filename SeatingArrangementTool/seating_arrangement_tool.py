@@ -7,6 +7,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 import sys
 import ctypes
+import random
 
 
 class Settings():
@@ -502,6 +503,72 @@ class ListWidget(QWidget):
                 QListWidgetItem(filename.removesuffix('.p'), self.list)
         self.selected_list_item_name = ''
 
+    def getSelectedItemName(self):
+        return self.selected_list_item_name
+
+
+class PicTextToggleButton(QAbstractButton):
+    def __init__(self, pixmap, pixmap_active, text, parent=None):
+        super(PicTextToggleButton, self).__init__(parent)
+        self.pixmap = pixmap
+        self.pixmap_active = pixmap_active
+        self.text = text
+        self.parent = parent
+
+        self.setCheckable(True)
+        self.setChecked(False)
+
+        self.pressed.connect(self.update)
+        self.released.connect(self.update)
+
+        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy.setHeightForWidth(True)
+        self.setSizePolicy(sizePolicy)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setFont(QFont('Times', 8))
+
+        pix = self.pixmap
+        if not self.isChecked():
+            if self.underMouse():
+                pix = self.pixmap_active
+                painter.setPen(QColorConstants.White)
+            else:
+                pix = self.pixmap
+                painter.setPen(QColorConstants.Black)
+        else:
+            if self.underMouse():
+                pix = self.pixmap
+                painter.setPen(QColorConstants.Black)
+            else:
+                pix = self.pixmap_active
+                painter.setPen(QColorConstants.White)
+        
+        painter.drawPixmap(event.rect(), pix)
+        painter.drawText(event.rect(), Qt.AlignCenter | Qt.TextWordWrap, self.text)
+
+    def enterEvent(self, event):
+        self.update()
+
+    def leaveEvent(self, event):
+        self.update()
+
+    def sizeHint(self):
+        return QSize(64, 64)
+
+    def heightForWidth(self, width):
+        return width
+
+    def resizeEvent(self, event):
+        new_size = QSize(1, 1)
+        new_size.scale(event.size(), Qt.KeepAspectRatio)
+        self.resize(new_size)
+
+    def setText(self, text):
+        self.text = text
+        self.update()
+
 
 class MainScreenWidget(QMainWindow):
     def __init__(self):
@@ -517,23 +584,18 @@ class MainScreenWidget(QMainWindow):
         for i in range(Settings.MAX_ROWS):
             self.layout['list'].append([])
             for j in range(Settings.MAX_COLS):
-                self.layout['list'][i].append(0)
+                place_dict = {'occupied' : 0, 'name' : ''}
+                self.layout['list'][i].append(place_dict)
 
         self.layout_grid = QGridLayout()
         self.cells = []
         for i in range(Settings.MAX_ROWS):
             self.cells.append([])
             for j in range(Settings.MAX_COLS):
-                self.cells[i].append(PicToggleButton(QPixmap("assets/rounded_square.png"), QPixmap("assets/rounded_square_filled.png")))
+                self.cells[i].append(PicTextToggleButton(QPixmap("assets/rounded_square.png"), QPixmap("assets/rounded_square_filled.png"), ''))
                 self.cells[i][j].clicked.connect(lambda state, arg=(i,j): self.gridCellButtonCallback(arg))
-                if 1 == self.layout['list'][i][j]:
-                    self.cells[i][j].setChecked(True)
-                else:
-                    self.cells[i][j].setChecked(False)
+                self.cells[i][j].setChecked(False)
                 self.layout_grid.addWidget(self.cells[i][j], i, j)
-
-                # if i >= self.layout['rows'] or j >= self.layout['cols']:
-                #      self.cells[i][j].hide()
                 self.cells[i][j].hide()
 
         self.grid_widget = QWidget()
@@ -543,10 +605,13 @@ class MainScreenWidget(QMainWindow):
         # Menu
         self.class_lists = ListWidget('user_data/class_lists', ListTypes.CLASS_LIST, 'Class Lists')
         self.room_layouts = ListWidget('user_data/room_layouts', ListTypes.ROOM_LAYOUT, "Room Layouts")
+        self.generate_button = QPushButton('Generate')
+        self.generate_button.clicked.connect(self.generateButtonCallback)
 
         self.menu_grid = QGridLayout()
         self.menu_grid.addWidget(self.class_lists, 0, 0)
         self.menu_grid.addWidget(self.room_layouts, 1, 0)
+        self.menu_grid.addWidget(self.generate_button, 2, 0)
 
         self.menu_widget = QWidget()
         self.menu_widget.setLayout(self.menu_grid)
@@ -568,6 +633,77 @@ class MainScreenWidget(QMainWindow):
         for window in QApplication.topLevelWidgets():
             window.close()
 
+    def generateButtonCallback(self):
+        class_list = []
+        if os.path.exists('user_data/class_lists/' + self.class_lists.getSelectedItemName() + '.p'):
+            with open('user_data/class_lists/' + self.class_lists.getSelectedItemName() + '.p', 'rb') as f:
+                 class_list = pickle.load(f)
+        room_layout = {}
+        if os.path.exists('user_data/room_layouts/' + self.room_layouts.getSelectedItemName() + '.p'):
+            with open('user_data/room_layouts/' + self.room_layouts.getSelectedItemName() + '.p', 'rb') as f:
+                 room_layout = pickle.load(f)
+        
+        if class_list != [] and room_layout != {}:
+            # Create a list of available seats
+            available_seats = []
+            row_ind = 0
+            col_ind = 0
+            for row in room_layout['list']:
+                for col in row:
+                    if room_layout['list'][row_ind][col_ind] == 1:
+                        available_seats.append((row_ind, col_ind))
+                    col_ind += 1
+                row_ind += 1
+                col_ind = 0
+
+            if len(available_seats) == len(class_list):
+
+                ############# Generate list of seat/student pairs #############
+                seat_student_pairs = []
+                
+                # Level 0 - random seating arrangement
+                for student in class_list:
+                    seat_index = random.randrange(0, len(available_seats))
+                    pair = {'seat' : available_seats[seat_index], 'student' : student['name']}
+                    seat_student_pairs.append(pair)
+                    available_seats.pop(seat_index)
+
+                # Level 1 - random seating arrangement with talkativeness accounted for
+
+                # Level 2 - random seating arrangement with talkativeness and rules accounted for
+
+                ###############################################################
+
+                # Set layout appropriately
+                self.layout['rows'] = room_layout['rows']
+                self.layout['cols'] = room_layout['cols']
+
+                self.resetLayout()
+
+                for pair in seat_student_pairs:
+                    row = pair['seat'][0]
+                    col = pair['seat'][1]
+                    self.layout['list'][row][col] = 1
+                    self.cells[row][col].setChecked(True)
+                    self.cells[row][col].setText(pair['student'])
+
+                for i in range (self.layout['rows']):
+                    for j in range(self.layout['cols']):
+                        self.cells[i][j].show()
+
+            else:
+                err_msg = QMessageBox()
+                err_msg.setText('Need same number of students and seats!')
+                err_msg.setIcon(QMessageBox.Warning)
+                err_msg.setWindowTitle(' ')
+                err_msg.exec_()
+        else:
+            err_msg = QMessageBox()
+            err_msg.setText('Select a class list and room layout!')
+            err_msg.setIcon(QMessageBox.Warning)
+            err_msg.setWindowTitle(' ')
+            err_msg.exec_() 
+
     def gridCellButtonCallback(self, row_col):
         row = row_col[0]
         col = row_col[1]
@@ -578,6 +714,13 @@ class MainScreenWidget(QMainWindow):
         else:
             self.layout['list'][row][col] = 0
             self.cells[row][col].setChecked(False)
+
+    def resetLayout(self):
+        for i in range(Settings.MAX_ROWS):
+            for j in range(Settings.MAX_COLS):
+                self.layout['list'][i][j] = 0
+                self.cells[i][j].setChecked(False)
+                self.cells[i][j].hide()
         
 
 def main():
