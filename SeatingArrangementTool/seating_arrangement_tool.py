@@ -1,12 +1,12 @@
 from enum import Enum
 import os.path
 import pickle
-from tkinter import E
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 import sys
 import random
+import math
 
 
 # Global settings values (assigned in main)
@@ -659,18 +659,42 @@ class MainScreenWidget(QMainWindow):
             if len(available_seats) == len(class_list):
 
                 ############# Generate list of seat/student pairs #############
-                seat_student_pairs = []
+                pairs = []
                 
                 # Level 0 - random seating arrangement
-                for student in class_list:
-                    seat_index = random.randrange(0, len(available_seats))
-                    pair = {'seat' : available_seats[seat_index], 'student' : student['name']}
-                    seat_student_pairs.append(pair)
-                    available_seats.pop(seat_index)
+
+                # for student in class_list:
+                #     seat_index = random.randrange(0, len(available_seats))
+                #     pair = {'seat' : available_seats[seat_index], 'student' : student}
+                #     pairs.append(pair)
+                #     available_seats.pop(seat_index)
 
                 # Level 1 - random seating arrangement with talkativeness accounted for
 
-                # Level 2 - random seating arrangement with talkativeness and rules accounted for
+                for student in class_list:
+                    best_seat_index = random.randrange(0, len(available_seats))
+                    seat_costs = []
+                    if student['talkative']:
+                        for seat_index in range(len(available_seats)):
+                            cost = 0
+                            for pair in pairs:
+                                if pair['student']['talkative']:
+                                    cost += 1 / math.dist(pair['seat'], available_seats[seat_index])
+                            seat_costs.append(cost)
+                        if min(seat_costs) > 0:
+                            best_seat_index = seat_costs.index(min(seat_costs))
+                        pair = {'seat' : available_seats[best_seat_index], 'student' : student}
+                        pairs.append(pair)
+                        available_seats.pop(best_seat_index)
+
+                for student in class_list:
+                    if not student['talkative']:
+                        seat_index = random.randrange(0, len(available_seats))
+                        pair = {'seat' : available_seats[seat_index], 'student' : student}
+                        pairs.append(pair)
+                        available_seats.pop(seat_index)
+ 
+                # Level 2 - random seating arrangement with rules and talkativeness accounted for
 
                 ###############################################################
 
@@ -680,12 +704,12 @@ class MainScreenWidget(QMainWindow):
 
                 self.resetLayout()
 
-                for pair in seat_student_pairs:
+                for pair in pairs:
                     row = pair['seat'][0]
                     col = pair['seat'][1]
                     self.layout['list'][row][col] = 1
                     self.cells[row][col].setChecked(True)
-                    self.cells[row][col].setText(pair['student'])
+                    self.cells[row][col].setText(pair['student']['name'])
 
                 for i in range (self.layout['rows']):
                     for j in range(self.layout['cols']):
