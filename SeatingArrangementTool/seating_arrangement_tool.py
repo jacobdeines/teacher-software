@@ -158,9 +158,13 @@ class ClassEditorWidget(QWidget):
         self.student_editor_labels_widget = QWidget()
         self.student_editor_labels_widget.setLayout(self.student_editor_labels_grid)
 
+        self.student_editor_delete_button = QPushButton("Delete")
+        self.student_editor_delete_button.clicked.connect(self.deleteButtonHandler)
+
         self.student_editor_grid = QGridLayout()
         self.student_editor_grid.addWidget(self.student_editor_name, 0, 0)
         self.student_editor_grid.addWidget(self.student_editor_labels_widget, 1, 0)
+        self.student_editor_grid.addWidget(self.student_editor_delete_button, 2, 0)
         self.student_editor_grid.setRowStretch(0, 1)
         self.student_editor_grid.setRowStretch(1, 10)
         self.student_editor_grid.setSpacing(5)
@@ -195,6 +199,18 @@ class ClassEditorWidget(QWidget):
                 self.student_editor_name.setText(item.text())
                 self.student_editor_talkative_button.setChecked(student['talkative'])
                 self.student_editor_widget.show()
+                break
+
+    def deleteButtonHandler(self):
+        for student in self.class_list:
+            if student['name'] == self.student_editor_name.text():
+                self.class_list.remove(student)
+                self.student_list.clear()
+                self.student_editor_name.setText('')
+                self.student_editor_talkative_button.setChecked(False)
+                self.student_editor_widget.hide()
+                for student in self.class_list:
+                    QListWidgetItem(student['name'], self.student_list)
                 break
 
     def talkativeButtonHandler(self):
