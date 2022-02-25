@@ -419,10 +419,11 @@ class ListWidget(QWidget):
 
         self.list = QListWidget()
 
-        for filename in os.listdir(self.directory):
-            f = os.path.join(self.directory, filename)
-            if os.path.isfile(f):
-                QListWidgetItem(filename.removesuffix('.p'), self.list)
+        if os.path.isdir(directory):
+            for filename in os.listdir(self.directory):
+                f = os.path.join(self.directory, filename)
+                if os.path.isfile(f):
+                    QListWidgetItem(filename.removesuffix('.p'), self.list)
 
         self.list.itemClicked.connect(self.listItemClicked)
 
@@ -484,6 +485,8 @@ class ListWidget(QWidget):
         if exit_status and name != '':
             if ListTypes.CLASS_LIST == self.list_type:
                 empty_list = []
+                if False == os.path.isdir('user_data/class_lists/'):
+                    os.makedirs('user_data/class_lists')
                 with open('user_data/class_lists/' + name + '.p', 'wb') as f:
                         pickle.dump(empty_list, f)
             elif ListTypes.ROOM_LAYOUT == self.list_type:
@@ -494,6 +497,8 @@ class ListWidget(QWidget):
                     for j in range(MAX_COLS):
                         layout_list[i].append(0)
                 room_layout['list'] = layout_list
+                if False == os.path.isdir('user_data/room_layouts/'):
+                    os.makedirs('user_data/room_layouts/')
                 with open('user_data/room_layouts/' + name + '.p', 'wb') as f:
                         pickle.dump(room_layout, f)
             self.updateList()
