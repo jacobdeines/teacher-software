@@ -9,7 +9,14 @@ import random
 import math
 
 
-# Global settings values (assigned in main)
+# Global settings values assigned here
+MIN_ROWS = 3
+MAX_ROWS = 15
+MIN_COLS = 6
+MAX_COLS = 30
+MAX_COST = 1
+
+# Global settings values assigned in main
 WIDTH = 0
 HEIGHT = 0
 SUB_WIDTH = 0
@@ -17,10 +24,6 @@ SUB_HEIGHT = 0
 MENU_WIDTH = 0
 SUB_X = 0
 SUB_Y = 0
-MIN_ROWS = 0
-MAX_ROWS = 0
-MIN_COLS = 0
-MAX_COLS = 0
 
 
 class ListTypes(Enum):
@@ -28,13 +31,15 @@ class ListTypes(Enum):
     ROOM_LAYOUT = 1
 
 
-class RuleTypes(Enum):
-    NONE = 0
-    CANNOT_BE_NEXT_TO = 1
-    CANNOT_BE_NEAR = 2
-    MUST_BE_NEXT_TO = 3
-    MUST_BE_NEAR = 4
-    MUST_BE_IN_SPOT = 5
+class PicPushButton(QAbstractButton):
+    def __init__(self, pixmap, parent=None):
+        super(PicPushButton, self).__init__(parent)
+        self.pixmap = pixmap
+        self.parent = parent
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.drawPixmap(event.rect(), self.pixmap)
 
 
 class PicToggleButton(QAbstractButton):
@@ -81,15 +86,67 @@ class PicToggleButton(QAbstractButton):
         self.resize(new_size)
 
 
-class PicPushButton(QAbstractButton):
-    def __init__(self, pixmap, parent=None):
-        super(PicPushButton, self).__init__(parent)
+class PicTextToggleButton(QAbstractButton):
+    def __init__(self, pixmap, pixmap_active, text, parent=None):
+        super(PicTextToggleButton, self).__init__(parent)
         self.pixmap = pixmap
+        self.pixmap_active = pixmap_active
+        self.text = text
         self.parent = parent
+
+        self.setCheckable(True)
+        self.setChecked(False)
+
+        self.pressed.connect(self.update)
+        self.released.connect(self.update)
+
+        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy.setHeightForWidth(True)
+        self.setSizePolicy(sizePolicy)
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.drawPixmap(event.rect(), self.pixmap)
+        painter.setFont(QFont('Times', 8))
+
+        pix = self.pixmap
+        if not self.isChecked():
+            if self.underMouse():
+                pix = self.pixmap_active
+                painter.setPen(QColorConstants.White)
+            else:
+                pix = self.pixmap
+                painter.setPen(QColorConstants.Black)
+        else:
+            if self.underMouse():
+                pix = self.pixmap
+                painter.setPen(QColorConstants.Black)
+            else:
+                pix = self.pixmap_active
+                painter.setPen(QColorConstants.White)
+        
+        painter.drawPixmap(event.rect(), pix)
+        painter.drawText(event.rect(), Qt.AlignCenter | Qt.TextWordWrap, self.text)
+
+    def enterEvent(self, event):
+        self.update()
+
+    def leaveEvent(self, event):
+        self.update()
+
+    def sizeHint(self):
+        return QSize(64, 64)
+
+    def heightForWidth(self, width):
+        return width
+
+    def resizeEvent(self, event):
+        new_size = QSize(1, 1)
+        new_size.scale(event.size(), Qt.KeepAspectRatio)
+        self.resize(new_size)
+
+    def setText(self, text):
+        self.text = text
+        self.update()
 
 
 class ClassEditorWidget(QWidget):
@@ -152,21 +209,32 @@ class ClassEditorWidget(QWidget):
         self.student_editor_talkative_button = PicToggleButton(QPixmap("assets/speech-bubble.png"), QPixmap("assets/speech-bubble-fill.png"))
         self.student_editor_talkative_button.setMaximumSize(64, 64)
         self.student_editor_talkative_button.clicked.connect(self.talkativeButtonHandler)
+        self.student_editor_talkative_label = QLabel('Talkative')
+        self.student_editor_talkative_label.setAlignment(Qt.AlignLeft)
+        self.student_editor_talkative_label.setAlignment(Qt.AlignVCenter)
 
-        self.student_editor_labels_grid = QGridLayout()
-        self.student_editor_labels_grid.addWidget(self.student_editor_talkative_button, 0, 0)
+        self.student_editor_front_button = PicToggleButton(QPixmap("assets/up-arrow.png"), QPixmap("assets/up-arrow-fill.png"))
+        self.student_editor_front_button.setMaximumSize(64, 64)
+        self.student_editor_front_button.clicked.connect(self.frontButtonHandler)
+        self.student_editor_front_label = QLabel('Front of room')
+        self.student_editor_front_label.setAlignment(Qt.AlignLeft)
+        self.student_editor_front_label.setAlignment(Qt.AlignVCenter)
+
+        self.student_editor_label_grid = QGridLayout()
+        self.student_editor_label_grid.addWidget(self.student_editor_talkative_button, 0, 0)
+        self.student_editor_label_grid.addWidget(self.student_editor_talkative_label, 0, 1)
+        self.student_editor_label_grid.addWidget(self.student_editor_front_button, 1, 0)
+        self.student_editor_label_grid.addWidget(self.student_editor_front_label, 1, 1)
         self.student_editor_labels_widget = QWidget()
-        self.student_editor_labels_widget.setLayout(self.student_editor_labels_grid)
+        self.student_editor_labels_widget.setLayout(self.student_editor_label_grid)
 
-        self.student_editor_delete_button = QPushButton("Delete")
+        self.student_editor_delete_button = QPushButton("Delete Student")
         self.student_editor_delete_button.clicked.connect(self.deleteButtonHandler)
 
         self.student_editor_grid = QGridLayout()
-        self.student_editor_grid.addWidget(self.student_editor_name, 0, 0)
+        self.student_editor_grid.addWidget(self.student_editor_name, 0, 0, Qt.AlignTop)
         self.student_editor_grid.addWidget(self.student_editor_labels_widget, 1, 0)
-        self.student_editor_grid.addWidget(self.student_editor_delete_button, 2, 0)
-        self.student_editor_grid.setRowStretch(0, 1)
-        self.student_editor_grid.setRowStretch(1, 10)
+        self.student_editor_grid.addWidget(self.student_editor_delete_button, 2, 0, Qt.AlignBottom)
         self.student_editor_grid.setSpacing(5)
 
         self.student_editor_widget = QWidget()
@@ -198,6 +266,7 @@ class ClassEditorWidget(QWidget):
             if student['name'] == item.text():
                 self.student_editor_name.setText(item.text())
                 self.student_editor_talkative_button.setChecked(student['talkative'])
+                self.student_editor_front_button.setChecked(student['front'])
                 self.student_editor_widget.show()
                 break
 
@@ -208,6 +277,7 @@ class ClassEditorWidget(QWidget):
                 self.student_list.clear()
                 self.student_editor_name.setText('')
                 self.student_editor_talkative_button.setChecked(False)
+                self.student_editor_front_button.setChecked(False)
                 self.student_editor_widget.hide()
                 for student in self.class_list:
                     QListWidgetItem(student['name'], self.student_list)
@@ -219,6 +289,12 @@ class ClassEditorWidget(QWidget):
                 student['talkative'] = not student['talkative']
                 self.student_editor_talkative_button.setChecked(student['talkative'])
 
+    def frontButtonHandler(self):
+        for student in self.class_list:
+            if student['name'] == self.student_editor_name.text():
+                student['front'] = not student['front']
+                self.student_editor_front_button.setChecked(student['front'])
+
     def onTextEnter(self):
         value = self.name_input.text()
 
@@ -228,12 +304,10 @@ class ClassEditorWidget(QWidget):
                 if student['name'] == value:
                     duplicate = True
             if not duplicate:
-                local_dict = {'name': value}
-                local_dict['talkative'] = False
-                rules = []
-                local_dict['rules'] = rules
-                self.class_list.append(local_dict)
-                QListWidgetItem(local_dict['name'], self.student_list)
+                new_student = {'name': '', 'talkative' : False, 'front' : False }
+                new_student['name'] = value
+                self.class_list.append(new_student)
+                QListWidgetItem(new_student['name'], self.student_list)
             else:
                 dup_msg = QMessageBox()
                 dup_msg.setText('Cannot have duplicate student names')
@@ -286,7 +360,7 @@ class RoomLayoutEditorWidget(QWidget):
 
         self.layout_name_widget = QWidget()
         self.layout_name_widget.setLayout(self.layout_name_grid)
-        self.layout_name_widget.setMaximumHeight(80)
+        self.layout_name_widget.setMaximumHeight(150)
 
         # Grid
         self.layout_grid = QGridLayout()
@@ -409,7 +483,7 @@ class RoomLayoutEditorWidget(QWidget):
                     self.cells[i][j].setChecked(False)
 
 
-class ListWidget(QWidget):
+class FileListWidget(QWidget):
     def __init__(self, directory, list_type, title):
         super().__init__()
 
@@ -523,69 +597,6 @@ class ListWidget(QWidget):
         return self.selected_list_item_name
 
 
-class PicTextToggleButton(QAbstractButton):
-    def __init__(self, pixmap, pixmap_active, text, parent=None):
-        super(PicTextToggleButton, self).__init__(parent)
-        self.pixmap = pixmap
-        self.pixmap_active = pixmap_active
-        self.text = text
-        self.parent = parent
-
-        self.setCheckable(True)
-        self.setChecked(False)
-
-        self.pressed.connect(self.update)
-        self.released.connect(self.update)
-
-        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        sizePolicy.setHeightForWidth(True)
-        self.setSizePolicy(sizePolicy)
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setFont(QFont('Times', 8))
-
-        pix = self.pixmap
-        if not self.isChecked():
-            if self.underMouse():
-                pix = self.pixmap_active
-                painter.setPen(QColorConstants.White)
-            else:
-                pix = self.pixmap
-                painter.setPen(QColorConstants.Black)
-        else:
-            if self.underMouse():
-                pix = self.pixmap
-                painter.setPen(QColorConstants.Black)
-            else:
-                pix = self.pixmap_active
-                painter.setPen(QColorConstants.White)
-        
-        painter.drawPixmap(event.rect(), pix)
-        painter.drawText(event.rect(), Qt.AlignCenter | Qt.TextWordWrap, self.text)
-
-    def enterEvent(self, event):
-        self.update()
-
-    def leaveEvent(self, event):
-        self.update()
-
-    def sizeHint(self):
-        return QSize(64, 64)
-
-    def heightForWidth(self, width):
-        return width
-
-    def resizeEvent(self, event):
-        new_size = QSize(1, 1)
-        new_size.scale(event.size(), Qt.KeepAspectRatio)
-        self.resize(new_size)
-
-    def setText(self, text):
-        self.text = text
-        self.update()
-
-
 class MainScreenWidget(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -619,8 +630,8 @@ class MainScreenWidget(QMainWindow):
         self.grid_widget.setMinimumWidth(SUB_WIDTH)
 
         # Menu
-        self.class_lists = ListWidget('user_data/class_lists', ListTypes.CLASS_LIST, 'Class Lists')
-        self.room_layouts = ListWidget('user_data/room_layouts', ListTypes.ROOM_LAYOUT, "Room Layouts")
+        self.class_lists = FileListWidget('user_data/class_lists', ListTypes.CLASS_LIST, 'Class Lists')
+        self.room_layouts = FileListWidget('user_data/room_layouts', ListTypes.ROOM_LAYOUT, "Room Layouts")
 
         self.generate_button = QPushButton('Generate')
         self.generate_button.clicked.connect(self.generateButtonCallback)
@@ -692,30 +703,116 @@ class MainScreenWidget(QMainWindow):
 
                 # Level 1 - random seating arrangement with talkativeness accounted for
 
-                for student in class_list:
-                    best_seat_index = random.randrange(0, len(available_seats))
-                    seat_costs = []
-                    if student['talkative']:
-                        for seat_index in range(len(available_seats)):
-                            cost = 0
-                            for pair in pairs:
-                                if pair['student']['talkative']:
-                                    cost += 1 / math.dist(pair['seat'], available_seats[seat_index])
-                            seat_costs.append(cost)
-                        if min(seat_costs) > 0:
-                            best_seat_index = seat_costs.index(min(seat_costs))
-                        pair = {'seat' : available_seats[best_seat_index], 'student' : student}
-                        pairs.append(pair)
-                        available_seats.pop(best_seat_index)
+                # for student in class_list:
+                #     best_seat_index = random.randrange(0, len(available_seats))
+                #     seat_costs = []
+                #     if student['talkative']:
+                #         for seat_index in range(len(available_seats)):
+                #             cost = 0
+                #             for pair in pairs:
+                #                 if pair['student']['talkative']:
+                #                     cost += 1 / math.dist(pair['seat'], available_seats[seat_index])
+                #             seat_costs.append(cost)
+                #         if min(seat_costs) > 0:
+                #             best_seat_index = seat_costs.index(min(seat_costs))
+                #         pair = {'seat' : available_seats[best_seat_index], 'student' : student}
+                #         pairs.append(pair)
+                #         available_seats.pop(best_seat_index)
+
+                # for student in class_list:
+                #     if not student['talkative']:
+                #         seat_index = random.randrange(0, len(available_seats))
+                #         pair = {'seat' : available_seats[seat_index], 'student' : student}
+                #         pairs.append(pair)
+                #         available_seats.pop(seat_index)
+ 
+                # Level 2 - random seating arrangement with both labels accounted for
+
+                back_of_room = 0
+                front_of_room = MAX_ROWS
+
+                for seat in available_seats:
+                    if seat[0] > back_of_room:
+                        back_of_room = seat[0]
+                    if seat[0] < front_of_room:
+                        front_of_room = seat[0]
 
                 for student in class_list:
-                    if not student['talkative']:
-                        seat_index = random.randrange(0, len(available_seats))
-                        pair = {'seat' : available_seats[seat_index], 'student' : student}
+                    seat_costs = []
+                    acceptable_seats = []
+                    if student['talkative'] and student['front']:
+                        for seat_index in range(len(available_seats)):
+                            cost = 0
+                            # Talkative cost
+                            if student['talkative']:
+                                for pair in pairs:
+                                    if pair['student']['talkative']:
+                                        cost += 2 / math.dist(pair['seat'], available_seats[seat_index])
+                            
+                            # Front cost
+                            if student['front']:
+                                if available_seats[seat_index][0] - front_of_room != 0:
+                                    cost += 1 * (available_seats[seat_index][0] - front_of_room)
+
+                            seat_costs.append(cost)
+
+                        for i in range(len(seat_costs)):
+                            if seat_costs[i] <= MAX_COST:
+                                acceptable_seats.append(i)
+
+                        if len(acceptable_seats) > 0:
+                            best_seat_index = random.randrange(0, len(acceptable_seats))
+                            pair = {'seat' : available_seats[acceptable_seats[best_seat_index]], 'student' : student, 'cost' : seat_costs[acceptable_seats[best_seat_index]]}
+                            pairs.append(pair)
+                            available_seats.pop(acceptable_seats[best_seat_index])
+                        else:
+                            best_seat_index = seat_costs.index(min(seat_costs))
+                            pair = {'seat' : available_seats[best_seat_index], 'student' : student, 'cost' : seat_costs[best_seat_index]}
+                            pairs.append(pair)
+                            available_seats.pop(best_seat_index)
+
+                for student in class_list:
+                    seat_costs = []
+                    acceptable_seats = []
+                    if student['talkative'] ^ student['front']:
+                        for seat_index in range(len(available_seats)):
+                            cost = 0
+                            # Talkative cost
+                            if student['talkative']:
+                                for pair in pairs:
+                                    if pair['student']['talkative']:
+                                        cost += 2 / math.dist(pair['seat'], available_seats[seat_index])
+                            
+                            # Front cost
+                            if student['front']:
+                                if available_seats[seat_index][0] - front_of_room != 0:
+                                    cost += 1 * (available_seats[seat_index][0] - front_of_room)
+
+                            seat_costs.append(cost)
+
+                        for i in range(len(seat_costs)):
+                            if seat_costs[i] <= MAX_COST:
+                                acceptable_seats.append(i)
+
+                        if len(acceptable_seats) > 0:
+                            best_seat_index = random.randrange(0, len(acceptable_seats))
+                            pair = {'seat' : available_seats[acceptable_seats[best_seat_index]], 'student' : student, 'cost' : seat_costs[acceptable_seats[best_seat_index]]}
+                            pairs.append(pair)
+                            available_seats.pop(acceptable_seats[best_seat_index])
+                        else:
+                            best_seat_index = seat_costs.index(min(seat_costs))
+                            pair = {'seat' : available_seats[best_seat_index], 'student' : student, 'cost' : seat_costs[best_seat_index]}
+                            pairs.append(pair)
+                            available_seats.pop(best_seat_index)
+
+                for student in class_list:
+                    seat_costs = []
+                    acceptable_seats = []
+                    if not student['talkative'] and not student['front']:
+                        best_seat_index = random.randrange(0, len(available_seats))
+                        pair = {'seat' : available_seats[best_seat_index], 'student' : student, 'cost' : 0}
                         pairs.append(pair)
-                        available_seats.pop(seat_index)
- 
-                # Level 2 - random seating arrangement with rules and talkativeness accounted for
+                        available_seats.pop(best_seat_index)
 
                 ###############################################################
 
@@ -794,10 +891,6 @@ def main():
     MENU_WIDTH = int(WIDTH / 4)
     SUB_X = int(WIDTH / 8)
     SUB_Y = int(HEIGHT / 8)
-    MIN_ROWS = 3
-    MAX_ROWS = 15
-    MIN_COLS = 6
-    MAX_COLS = 30
 
     ex = MainScreenWidget()
 
