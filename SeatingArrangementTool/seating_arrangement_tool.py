@@ -7,6 +7,7 @@ from PyQt5.QtCore import *
 import sys
 import random
 import math
+import time
 
 
 # Global settings values assigned here
@@ -22,6 +23,7 @@ HEIGHT = 0
 SUB_WIDTH = 0
 SUB_HEIGHT = 0
 MENU_WIDTH = 0
+GRID_WIDTH = 0
 SUB_X = 0
 SUB_Y = 0
 
@@ -167,6 +169,51 @@ class SeatingGridButton(QAbstractButton):
         self.update()
 
 
+class SeatingGridButtonStatic(QAbstractButton):
+    def __init__(self, pixmap, pixmap_active, text, parent=None):
+        super(SeatingGridButtonStatic, self).__init__(parent)
+        self.pixmap = pixmap
+        self.pixmap_active = pixmap_active
+        self.filled = False
+        self.text = text
+        self.parent = parent
+        self.setFilled(False)
+
+        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy.setHeightForWidth(True)
+        self.setSizePolicy(sizePolicy)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setFont(QFont('Times', 12))
+        pix = self.pixmap
+        painter.setPen(QColorConstants.Black)
+        if self.filled:
+            pix = self.pixmap_active
+            painter.setPen(QColorConstants.White)
+        painter.drawPixmap(event.rect(), pix)
+        painter.drawText(event.rect(), Qt.AlignCenter | Qt.TextWordWrap, self.text)
+
+    def sizeHint(self):
+        return QSize(64, 64)
+
+    def heightForWidth(self, width):
+        return width
+
+    def resizeEvent(self, event):
+        new_size = QSize(1, 1)
+        new_size.scale(event.size(), Qt.KeepAspectRatio)
+        self.resize(new_size)
+
+    def setText(self, text):
+        self.text = text
+        self.update()
+
+    def setFilled(self, state):
+        self.filled = state
+        self.update()
+
+
 class ClassEditorWidget(QWidget):
     def __init__(self, filename):
         super().__init__()
@@ -177,8 +224,8 @@ class ClassEditorWidget(QWidget):
         self.class_list = []
 
         # Load data
-        if os.path.exists('user_data/class_lists/' + self.filename):
-            with open('user_data/class_lists/' + self.filename, 'rb') as f:
+        if os.path.exists('data/class_lists/' + self.filename):
+            with open('data/class_lists/' + self.filename, 'rb') as f:
                  self.class_list = pickle.load(f)
 
         self.UI()
@@ -273,9 +320,10 @@ class ClassEditorWidget(QWidget):
         self.setLayout(self.main_grid)
         self.setGeometry(SUB_X, SUB_Y, SUB_WIDTH, SUB_HEIGHT)
         self.setWindowTitle('Class Editor')
+        self.setWindowIcon(QIcon('assets/chair.png'))
 
     def saveButtonHandler(self):
-        with open('user_data/class_lists/' + self.filename, 'wb') as f:
+        with open('data/class_lists/' + self.filename, 'wb') as f:
                 pickle.dump(self.class_list, f)
 
 
@@ -331,6 +379,7 @@ class ClassEditorWidget(QWidget):
                 dup_msg.setText('Cannot have duplicate student names')
                 dup_msg.setIcon(QMessageBox.Warning)
                 dup_msg.setWindowTitle(' ')
+                dup_msg.setWindowIcon(QIcon('assets/chair.png'))
                 dup_msg.exec_()
             self.name_input.clear()
 
@@ -345,8 +394,8 @@ class RoomLayoutEditorWidget(QWidget):
         self.layout = {}
 
         # Load data
-        if os.path.exists('user_data/room_layouts/' + self.filename):
-            with open('user_data/room_layouts/' + self.filename, 'rb') as f:
+        if os.path.exists('data/room_layouts/' + self.filename):
+            with open('data/room_layouts/' + self.filename, 'rb') as f:
                  self.layout = pickle.load(f)
 
         if {} == self.layout:
@@ -438,9 +487,10 @@ class RoomLayoutEditorWidget(QWidget):
         self.setLayout(self.main_grid)
         self.setGeometry(SUB_X, SUB_Y, SUB_WIDTH, SUB_HEIGHT)
         self.setWindowTitle('Room Layout Editor')
+        self.setWindowIcon(QIcon('assets/chair.png'))
 
     def saveButtonHandler(self):
-        with open('user_data/room_layouts/' + self.filename, 'wb') as f:
+        with open('data/room_layouts/' + self.filename, 'wb') as f:
                 pickle.dump(self.layout, f)
 
     def clearButtonHandler(self):
@@ -577,9 +627,9 @@ class FileListWidget(QWidget):
         if exit_status and name != '':
             if ListTypes.CLASS_LIST == self.list_type:
                 empty_list = []
-                if False == os.path.isdir('user_data/class_lists/'):
-                    os.makedirs('user_data/class_lists')
-                with open('user_data/class_lists/' + name + '.p', 'wb') as f:
+                if False == os.path.isdir('data/class_lists/'):
+                    os.makedirs('data/class_lists')
+                with open('data/class_lists/' + name + '.p', 'wb') as f:
                         pickle.dump(empty_list, f)
             elif ListTypes.ROOM_LAYOUT == self.list_type:
                 room_layout = {'rows' : MIN_ROWS, 'cols' : MIN_COLS}
@@ -589,18 +639,18 @@ class FileListWidget(QWidget):
                     for j in range(MAX_COLS):
                         layout_list[i].append(0)
                 room_layout['list'] = layout_list
-                if False == os.path.isdir('user_data/room_layouts/'):
-                    os.makedirs('user_data/room_layouts/')
-                with open('user_data/room_layouts/' + name + '.p', 'wb') as f:
+                if False == os.path.isdir('data/room_layouts/'):
+                    os.makedirs('data/room_layouts/')
+                with open('data/room_layouts/' + name + '.p', 'wb') as f:
                         pickle.dump(room_layout, f)
             self.updateList()
 
     def deleteButtonHandler(self):
         if '' != self.selected_list_item_name:
             if ListTypes.CLASS_LIST == self.list_type:
-                os.remove('user_data/class_lists/' + self.selected_list_item_name + '.p')
+                os.remove('data/class_lists/' + self.selected_list_item_name + '.p')
             elif ListTypes.ROOM_LAYOUT == self.list_type:
-                os.remove('user_data/room_layouts/' + self.selected_list_item_name + '.p')
+                os.remove('data/room_layouts/' + self.selected_list_item_name + '.p')
             self.updateList()
 
     def updateList(self):
@@ -643,17 +693,21 @@ class MainScreenWidget(QMainWindow):
                 self.cells[i][j].hide()
         self.space_highlighted = False
         self.highlighted_space = (0, 0)
+        self.grid_shown = False
 
         self.grid_widget = QWidget()
         self.grid_widget.setLayout(self.layout_grid)
-        self.grid_widget.setMinimumWidth(SUB_WIDTH)
+        self.grid_widget.setMinimumWidth(GRID_WIDTH)
 
         # Menu
-        self.class_lists = FileListWidget('user_data/class_lists', ListTypes.CLASS_LIST, 'Class Lists')
-        self.room_layouts = FileListWidget('user_data/room_layouts', ListTypes.ROOM_LAYOUT, "Room Layouts")
+        self.class_lists = FileListWidget('data/class_lists', ListTypes.CLASS_LIST, 'Class Lists')
+        self.room_layouts = FileListWidget('data/room_layouts', ListTypes.ROOM_LAYOUT, "Room Layouts")
 
         self.generate_button = QPushButton('Generate')
         self.generate_button.clicked.connect(self.generateButtonCallback)
+
+        self.export_button = QPushButton('Export')
+        self.export_button.clicked.connect(self.exportButtonCallback)
 
         self.clear_button = QPushButton('Clear')
         self.clear_button.clicked.connect(self.resetLayout)
@@ -662,7 +716,8 @@ class MainScreenWidget(QMainWindow):
         self.menu_grid.addWidget(self.class_lists, 0, 0)
         self.menu_grid.addWidget(self.room_layouts, 1, 0)
         self.menu_grid.addWidget(self.generate_button, 2, 0)
-        self.menu_grid.addWidget(self.clear_button, 3, 0)
+        self.menu_grid.addWidget(self.export_button, 3, 0)
+        self.menu_grid.addWidget(self.clear_button, 4, 0)
 
         self.menu_widget = QWidget()
         self.menu_widget.setLayout(self.menu_grid)
@@ -686,12 +741,12 @@ class MainScreenWidget(QMainWindow):
 
     def generateButtonCallback(self):
         class_list = []
-        if os.path.exists('user_data/class_lists/' + self.class_lists.getSelectedItemName() + '.p'):
-            with open('user_data/class_lists/' + self.class_lists.getSelectedItemName() + '.p', 'rb') as f:
+        if os.path.exists('data/class_lists/' + self.class_lists.getSelectedItemName() + '.p'):
+            with open('data/class_lists/' + self.class_lists.getSelectedItemName() + '.p', 'rb') as f:
                  class_list = pickle.load(f)
         room_layout = {}
-        if os.path.exists('user_data/room_layouts/' + self.room_layouts.getSelectedItemName() + '.p'):
-            with open('user_data/room_layouts/' + self.room_layouts.getSelectedItemName() + '.p', 'rb') as f:
+        if os.path.exists('data/room_layouts/' + self.room_layouts.getSelectedItemName() + '.p'):
+            with open('data/room_layouts/' + self.room_layouts.getSelectedItemName() + '.p', 'rb') as f:
                  room_layout = pickle.load(f)
         
         if class_list != [] and room_layout != {}:
@@ -821,18 +876,79 @@ class MainScreenWidget(QMainWindow):
                     for j in range(self.layout['cols']):
                         self.cells[i][j].show()
 
+                self.grid_shown = True
+
             else:
                 err_msg = QMessageBox()
                 err_msg.setText('Need same number of students and seats!')
                 err_msg.setIcon(QMessageBox.Warning)
                 err_msg.setWindowTitle(' ')
+                err_msg.setWindowIcon(QIcon('assets/chair.png'))
                 err_msg.exec_()
         else:
             err_msg = QMessageBox()
             err_msg.setText('Select a class list and room layout!')
             err_msg.setIcon(QMessageBox.Warning)
             err_msg.setWindowTitle(' ')
+            err_msg.setWindowIcon(QIcon('assets/chair.png'))
             err_msg.exec_() 
+
+    def exportButtonCallback(self):
+        if self.grid_shown:
+            name, exit_status = QInputDialog.getText(self, 'New', 'Enter a name:')
+
+            if exit_status:
+                if name != '':
+                    layout_grid_full = QGridLayout()
+                    cells_full = []
+                    for i in range(self.layout['rows']):
+                        cells_full.append([])
+                        for j in range(self.layout['cols']):
+                            cells_full[i].append(SeatingGridButtonStatic(QPixmap("assets/rounded_square.png"), QPixmap("assets/rounded_square_filled.png"), ''))
+                            layout_grid_full.addWidget(cells_full[i][j], i, j)
+                            cells_full[i][j].hide()
+                            if 1 == self.layout['list'][i][j]:
+                                cells_full[i][j].setText(self.cells[i][j].getText())
+                                cells_full[i][j].setFilled(True)
+                            cells_full[i][j].show()
+
+                    full_screen = QWidget()
+                    full_screen.setLayout(layout_grid_full)
+                    full_screen.setWindowTitle('Seating Arrangement Tool')
+                    full_screen.setWindowIcon(QIcon('assets/chair.png'))
+                    full_screen.showMaximized()
+
+                    if False == os.path.isdir('exports/'):
+                        os.makedirs('exports')
+
+                    loop = QEventLoop()
+                    QTimer.singleShot(500, loop.quit)
+                    loop.exec_()
+
+                    pix = QPixmap(full_screen.size())
+                    full_screen.render(pix)
+                    pix.save('exports/' + name + '.png')
+
+                    loop = QEventLoop()
+                    QTimer.singleShot(500, loop.quit)
+                    loop.exec_()
+
+                    full_screen.close()
+                    
+                else:
+                    err_msg = QMessageBox()
+                    err_msg.setText('Must enter a valid file name!')
+                    err_msg.setIcon(QMessageBox.Warning)
+                    err_msg.setWindowTitle(' ')
+                    err_msg.setWindowIcon(QIcon('assets/chair.png'))
+                    err_msg.exec_()
+        else:
+            err_msg = QMessageBox()
+            err_msg.setText('Generate a seating arrangement first!')
+            err_msg.setIcon(QMessageBox.Warning)
+            err_msg.setWindowTitle(' ')
+            err_msg.setWindowIcon(QIcon('assets/chair.png'))
+            err_msg.exec_()
 
     def gridCellButtonCallback(self, row_col):
         row = row_col[0]
@@ -870,6 +986,8 @@ class MainScreenWidget(QMainWindow):
                 self.cells[i][j].setFilled(False)
                 self.cells[i][j].setText('')
                 self.cells[i][j].hide()
+
+        self.grid_shown = False
         
 
 def main():
@@ -878,6 +996,7 @@ def main():
     global SUB_WIDTH
     global SUB_HEIGHT
     global MENU_WIDTH
+    global GRID_WIDTH
     global SUB_X
     global SUB_Y
     global MIN_ROWS
@@ -894,9 +1013,10 @@ def main():
     HEIGHT = int(screensize.height())
     SUB_WIDTH = int((WIDTH * 2) / 3)
     SUB_HEIGHT = int((HEIGHT * 2)/ 3)
-    MENU_WIDTH = int(WIDTH / 4)
-    SUB_X = int(WIDTH / 8)
-    SUB_Y = int(HEIGHT / 8)
+    MENU_WIDTH = int(WIDTH / 5)
+    GRID_WIDTH = int((WIDTH * 4) / 5)
+    SUB_X = int(WIDTH / 6)
+    SUB_Y = int(HEIGHT / 6)
 
     ex = MainScreenWidget()
 
