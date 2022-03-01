@@ -693,40 +693,9 @@ class MainScreenWidget(QMainWindow):
                 ############# Generate list of seat/student pairs #############
                 pairs = []
                 
-                # Level 0 - random seating arrangement
-
-                # for student in class_list:
-                #     seat_index = random.randrange(0, len(available_seats))
-                #     pair = {'seat' : available_seats[seat_index], 'student' : student}
-                #     pairs.append(pair)
-                #     available_seats.pop(seat_index)
-
-                # Level 1 - random seating arrangement with talkativeness accounted for
-
-                # for student in class_list:
-                #     best_seat_index = random.randrange(0, len(available_seats))
-                #     seat_costs = []
-                #     if student['talkative']:
-                #         for seat_index in range(len(available_seats)):
-                #             cost = 0
-                #             for pair in pairs:
-                #                 if pair['student']['talkative']:
-                #                     cost += 1 / math.dist(pair['seat'], available_seats[seat_index])
-                #             seat_costs.append(cost)
-                #         if min(seat_costs) > 0:
-                #             best_seat_index = seat_costs.index(min(seat_costs))
-                #         pair = {'seat' : available_seats[best_seat_index], 'student' : student}
-                #         pairs.append(pair)
-                #         available_seats.pop(best_seat_index)
-
-                # for student in class_list:
-                #     if not student['talkative']:
-                #         seat_index = random.randrange(0, len(available_seats))
-                #         pair = {'seat' : available_seats[seat_index], 'student' : student}
-                #         pairs.append(pair)
-                #         available_seats.pop(seat_index)
- 
-                # Level 2 - random seating arrangement with both labels accounted for
+                shuffled_class_list = []
+                shuffled_class_list = class_list
+                random.shuffle(shuffled_class_list)
 
                 back_of_room = 0
                 front_of_room = MAX_ROWS
@@ -737,7 +706,7 @@ class MainScreenWidget(QMainWindow):
                     if seat[0] < front_of_room:
                         front_of_room = seat[0]
 
-                for student in class_list:
+                for student in shuffled_class_list:
                     seat_costs = []
                     acceptable_seats = []
                     if student['talkative'] and student['front']:
@@ -771,7 +740,7 @@ class MainScreenWidget(QMainWindow):
                             pairs.append(pair)
                             available_seats.pop(best_seat_index)
 
-                for student in class_list:
+                for student in shuffled_class_list:
                     seat_costs = []
                     acceptable_seats = []
                     if student['talkative'] ^ student['front']:
@@ -805,7 +774,7 @@ class MainScreenWidget(QMainWindow):
                             pairs.append(pair)
                             available_seats.pop(best_seat_index)
 
-                for student in class_list:
+                for student in shuffled_class_list:
                     seat_costs = []
                     acceptable_seats = []
                     if not student['talkative'] and not student['front']:
