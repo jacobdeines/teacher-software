@@ -842,7 +842,6 @@ class MainScreenWidget(QMainWindow):
             self.cells[row][col].setHighlighted(True)
             self.space_highlighted = True
             self.highlighted_space = (row, col)
-            print('Here: ' + str(self.highlighted_space))
         elif self.space_highlighted and 0 != self.layout['list'][row][col]:
             self.cells[self.highlighted_space[0]][self.highlighted_space[1]].setHighlighted(False)
             temp_text_old = self.cells[self.highlighted_space[0]][self.highlighted_space[1]].getText()
