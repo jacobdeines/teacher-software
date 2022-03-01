@@ -86,16 +86,19 @@ class PicToggleButton(QAbstractButton):
         self.resize(new_size)
 
 
-class PicTextToggleButton(QAbstractButton):
-    def __init__(self, pixmap, pixmap_active, text, parent=None):
-        super(PicTextToggleButton, self).__init__(parent)
+class SeatingGridButton(QAbstractButton):
+    def __init__(self, pixmap, pixmap_active, pixmap_highlighted, text, parent=None):
+        super(SeatingGridButton, self).__init__(parent)
         self.pixmap = pixmap
         self.pixmap_active = pixmap_active
+        self.pixmap_highlighted = pixmap_highlighted
+        self.filled = False
+        self.highlighted = False
         self.text = text
         self.parent = parent
 
-        self.setCheckable(True)
-        self.setChecked(False)
+        self.setFilled(False)
+        self.setHighlighted(False)
 
         self.pressed.connect(self.update)
         self.released.connect(self.update)
@@ -109,7 +112,7 @@ class PicTextToggleButton(QAbstractButton):
         painter.setFont(QFont('Times', 8))
 
         pix = self.pixmap
-        if not self.isChecked():
+        if not self.filled:
             if self.underMouse():
                 pix = self.pixmap_active
                 painter.setPen(QColorConstants.White)
@@ -117,12 +120,16 @@ class PicTextToggleButton(QAbstractButton):
                 pix = self.pixmap
                 painter.setPen(QColorConstants.Black)
         else:
-            if self.underMouse():
-                pix = self.pixmap
+            if self.highlighted:
+                pix = self.pixmap_highlighted
                 painter.setPen(QColorConstants.Black)
             else:
-                pix = self.pixmap_active
-                painter.setPen(QColorConstants.White)
+                if self.underMouse():
+                    pix = self.pixmap
+                    painter.setPen(QColorConstants.Black)
+                else:
+                    pix = self.pixmap_active
+                    painter.setPen(QColorConstants.White)
         
         painter.drawPixmap(event.rect(), pix)
         painter.drawText(event.rect(), Qt.AlignCenter | Qt.TextWordWrap, self.text)
@@ -146,6 +153,17 @@ class PicTextToggleButton(QAbstractButton):
 
     def setText(self, text):
         self.text = text
+        self.update()
+
+    def getText(self):
+        return self.text
+
+    def setFilled(self, state):
+        self.filled = state
+        self.update()
+
+    def setHighlighted(self, state):
+        self.highlighted = state
         self.update()
 
 
@@ -619,11 +637,12 @@ class MainScreenWidget(QMainWindow):
         for i in range(MAX_ROWS):
             self.cells.append([])
             for j in range(MAX_COLS):
-                self.cells[i].append(PicTextToggleButton(QPixmap("assets/rounded_square.png"), QPixmap("assets/rounded_square_filled.png"), ''))
+                self.cells[i].append(SeatingGridButton(QPixmap("assets/rounded_square.png"), QPixmap("assets/rounded_square_filled.png"), QPixmap("assets/blue-square.png"), ''))
                 self.cells[i][j].clicked.connect(lambda state, arg=(i,j): self.gridCellButtonCallback(arg))
-                self.cells[i][j].setChecked(False)
                 self.layout_grid.addWidget(self.cells[i][j], i, j)
                 self.cells[i][j].hide()
+        self.space_highlighted = False
+        self.highlighted_space = (0, 0)
 
         self.grid_widget = QWidget()
         self.grid_widget.setLayout(self.layout_grid)
@@ -795,7 +814,7 @@ class MainScreenWidget(QMainWindow):
                     row = pair['seat'][0]
                     col = pair['seat'][1]
                     self.layout['list'][row][col] = 1
-                    self.cells[row][col].setChecked(True)
+                    self.cells[row][col].setFilled(True)
                     self.cells[row][col].setText(pair['student']['name'])
 
                 for i in range (self.layout['rows']):
@@ -819,18 +838,37 @@ class MainScreenWidget(QMainWindow):
         row = row_col[0]
         col = row_col[1]
 
-        if 0 == self.layout['list'][row][col]:
+        if 0 != self.layout['list'][row][col] and not self.space_highlighted:
+            self.cells[row][col].setHighlighted(True)
+            self.space_highlighted = True
+            self.highlighted_space = (row, col)
+            print('Here: ' + str(self.highlighted_space))
+        elif self.space_highlighted and 0 != self.layout['list'][row][col]:
+            self.cells[self.highlighted_space[0]][self.highlighted_space[1]].setHighlighted(False)
+            temp_text_old = self.cells[self.highlighted_space[0]][self.highlighted_space[1]].getText()
+            temp_text_new = self.cells[row][col].getText()
+            self.cells[row][col].setText(temp_text_old)
+            self.cells[self.highlighted_space[0]][self.highlighted_space[1]].setText(temp_text_new)
+            self.space_highlighted = False
+            self.highlighted_space = (0, 0)
+        elif self.space_highlighted and 0 == self.layout['list'][row][col]:
             self.layout['list'][row][col] = 1
-            self.cells[row][col].setChecked(True)
-        else:
-            self.layout['list'][row][col] = 0
-            self.cells[row][col].setChecked(False)
+            self.layout['list'][self.highlighted_space[0]][self.highlighted_space[1]] = 0
+            self.cells[row][col].setFilled(True)
+            self.cells[self.highlighted_space[0]][self.highlighted_space[1]].setFilled(False)
+            self.cells[self.highlighted_space[0]][self.highlighted_space[1]].setHighlighted(False)
+            temp_text_old = self.cells[self.highlighted_space[0]][self.highlighted_space[1]].getText()
+            temp_text_new = self.cells[row][col].getText()
+            self.cells[row][col].setText(temp_text_old)
+            self.cells[self.highlighted_space[0]][self.highlighted_space[1]].setText(temp_text_new)
+            self.space_highlighted = False
+            self.highlighted_space = (0, 0)
 
     def resetLayout(self):
         for i in range(MAX_ROWS):
             for j in range(MAX_COLS):
                 self.layout['list'][i][j] = 0
-                self.cells[i][j].setChecked(False)
+                self.cells[i][j].setFilled(False)
                 self.cells[i][j].setText('')
                 self.cells[i][j].hide()
         
