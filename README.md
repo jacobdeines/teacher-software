@@ -1,4 +1,4 @@
-# Teacher Software
+# teacher-software
 
 Seating Arrangement Tool:
 
